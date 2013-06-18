@@ -16,14 +16,16 @@ SOURCES += main.cpp\
     pointgenthread.cpp \
     clickablelabel.cpp \
     analysis/samplepairs.cpp \
-    analysis/analysis.cpp
+    analysis/analysis.cpp \
+    analysis/rs.cpp
 
 HEADERS  += mainwindow.h \
     secretmsgtextedit.h \
     pointgenthread.h \
     clickablelabel.hpp \
     analysis/samplepairs.h \
-    analysis/analysis.h
+    analysis/analysis.h \
+    analysis/rs.h
 
 FORMS    += mainwindow.ui
 

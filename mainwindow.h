@@ -10,11 +10,13 @@
 #include <QMessageBox>
 #include <QProgressBar>
 #include "pointgenthread.h"
+#include "clickablelabel.hpp"
 #include <QtCrypto/QtCrypto>
 #include <QBuffer>
 #include <QFile>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QBitmap>
 
 namespace Ui {
     class MainWindow;
@@ -53,6 +55,11 @@ private slots:
     void slotZoomIn();
     void slotZoomOut();
     void slotNormalSize();
+    void slotOnlyLSBRed();
+    void slotOnlyLSBGreen();
+    void slotOnlyLSBBlue();
+    void slotOnlyLSBAll();
+    void slotOnlyLSBNormal();
 
     void slotChangeStegoImgVisib(bool);
 
@@ -75,8 +82,9 @@ private:
     QCA::Cipher mCipher;
 
     float mScaleFactor;
-    QPixmap mViewPixmap;
-    QPixmap mViewStegoPixmap;
+    QImage mModifiedImg;
+    QImage mModifiedStego;
+    PointGenThread::Color mLastModified;
 
     QString mAnalysisOutFileName;
 
@@ -87,6 +95,11 @@ private:
     void openImage(QString name);
 
     void scaleImage(float factor);
+
+    bool convertToLSB(QImage & image, PointGenThread::Color color, ClickableLabel * label = 0);
+    bool resetImages(PointGenThread::Color color);
+    void adjustMyScrollBars();
+    void adjustMySize(QImage & image, ClickableLabel *label);
 };
 
 #endif // MAINWINDOW_H

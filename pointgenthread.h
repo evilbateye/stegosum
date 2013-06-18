@@ -22,6 +22,7 @@ public:
                bool isCompress = false,
                bool isEncrypt = false,
                bool isEncodeMax = false,
+               bool isEncrypt = false,
                Color color = NONE);
     const QImage & getImg();
 
@@ -47,6 +48,7 @@ private:
     bool mIsCompress;
     bool mIsEncrypt;
     bool mIsEncodeMax;
+    bool mIsLookAhead;
     Color mColor;
 
     void shuffle(qint32 msgSizeB, QImage & image, quint16 key, QVector<QPoint> & pointsList);

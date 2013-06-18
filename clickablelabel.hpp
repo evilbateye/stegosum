@@ -3,6 +3,7 @@
 
 #include <QLabel>
 #include <QWheelEvent>
+#include <QScrollBar>
 
 class ClickableLabel : public QLabel
 {
@@ -10,6 +11,8 @@ class ClickableLabel : public QLabel
 
 public:
     ClickableLabel(QWidget *parent);
+    void setHSlider(QScrollBar * sb) { mHSB = sb; }
+    void setVSlider(QScrollBar * sb) { mVSB = sb; }
 
 signals:
     void clicked();
@@ -25,6 +28,8 @@ protected:
 private:
     QPoint mPoint;
     QPoint mDiff;
+    QScrollBar * mHSB;
+    QScrollBar * mVSB;
 };
 
 #endif // CLICKABLELABEL_HPP

@@ -13,7 +13,12 @@ public:
     };
 
     Analysis();
-    virtual double analyse(QImage & image, Color color) = 0;
+    virtual void analyse(QImage & image, Color color, bool overlap) = 0;
+    quint8 getColor(Color color, QRgb * pixel);
+    double getMessageLength() { return mMessageLength; }
+
+protected:
+    double mMessageLength;
 };
 
 #endif // ANALYSIS_H

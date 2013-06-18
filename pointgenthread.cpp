@@ -17,7 +17,7 @@ void PointGenThread::run()
     else emit succes(Decode(mImg, mKey));
 }
 
-void PointGenThread::setUp(const QImage & img, QByteArray & msg, quint16 key, bool encode, bool isCompress, bool isEncrypt, bool isEncodeMax, Color color)
+void PointGenThread::setUp(const QImage & img, QByteArray & msg, quint16 key, bool encode, bool isCompress, bool isEncrypt, bool isEncodeMax, bool isLookAhead, Color color)
 {
     mImg = img;
     mMsg = msg;
@@ -27,6 +27,7 @@ void PointGenThread::setUp(const QImage & img, QByteArray & msg, quint16 key, bo
     mIsCompress = isCompress;
     mIsEncrypt = isEncrypt;
     mIsEncodeMax = isEncodeMax;
+    mIsLookAhead = isLookAhead;
     mColor = color;
 }
 
@@ -188,14 +189,12 @@ bool PointGenThread::Encode(QImage & image, QByteArray & msgBytes, quint16 key)
 
             quint8 blue = qBlue(tmpPixel);
 
-
             red = (red & 0xFE);
             if (i * 3 < msgBoolVect.size())
                 if (msgBoolVect[i * 3])
                 {
                     red = red | 0x01;
                 }
-
 
             green = (green & 0xFE);
             if (i * 3 + 1 < msgBoolVect.size())

@@ -1,6 +1,7 @@
 #include <QImage>
 #include <QColor>
 #include <QtCore/qmath.h>
+#include <QDebug>
 
 #include "samplepairs.h"
 
@@ -15,8 +16,10 @@ SamplePairs::SamplePairs()
  * @param color
  * @return
  */
-double SamplePairs::analyse(QImage &image, Color color)
+void SamplePairs::analyseOld(QImage &image, Color color, bool overlap)
 {
+    Q_UNUSED(overlap);
+
     //get the images sizes
     int imgw = image.width();
     if (imgw % 2 == 1) imgw--;
@@ -32,6 +35,8 @@ double SamplePairs::analyse(QImage &image, Color color)
     long W;
 
     P = X = Y = Z = W = 0;
+
+    mMessageLength = 0;
 
     //pairs across the image
     for (int starty = 0; starty < imgh; starty++) {
@@ -120,24 +125,71 @@ double SamplePairs::analyse(QImage &image, Color color)
         x = c / b;
     }
 
-    return x;
+    mMessageLength = x;
 }
 
-quint8 SamplePairs::getColor(Analysis::Color color, QRgb * pixel)
+void SamplePairs::categorize(int m, int x1,int y1, int x2, int y2, Color color, QImage & image)
 {
-    switch (color) {
-        case Analysis::ANALYSIS_COLOR_RED: {
-            return qRed(*pixel);
+    QRgb * firstPixel;
+    QRgb * secondPixel;
+
+    firstPixel = &reinterpret_cast<QRgb *>(image.scanLine(y1))[x1];
+    secondPixel = &reinterpret_cast<QRgb *>(image.scanLine(y2))[x2];
+
+    quint8 u = getColor(color, firstPixel);
+    quint8 v = getColor(color, secondPixel);
+
+    int d = qAbs(u - v);
+    int cd = qAbs((u >> 1) - (v >> 1));
+
+    //categorize
+    if (d == (2 * m)) D2m++;
+    if (d == (2 * m + 2)) D2m2++;
+    if (cd == m) Cm++;
+    if (cd == (m + 1)) Cm1++;
+    if ((d == (2 * m + 1)) && (cd == (m + 1))) X2m1++;
+    if ((d == (2 * m + 1)) && (cd == m)) Y2m1++;
+}
+
+void SamplePairs::analyse(QImage & image, Color color, bool overlap)
+{
+    Q_UNUSED(overlap);
+
+    Cm = Cm1 = D2m = D2m2 = X2m1 = Y2m1 = 0;
+    mMessageLength = 0;
+
+    for (int m = 0; m < 128; m++) {
+
+        //pairs across the image
+        for (int starty = 0; starty < image.height(); starty++) {
+            for (int startx = 1; startx < image.width(); startx++) {
+                this->categorize(m, startx - 1, starty, startx, starty, color, image);
+            }
         }
 
-        case Analysis::ANALYSIS_COLOR_GREEN: {
-            return qGreen(*pixel);
+        //pairs down the image
+        for (int starty = 1; starty < image.height(); starty++) {
+            for (int startx = 0; startx < image.width(); startx++) {
+                this->categorize(m, startx, starty - 1, startx, starty, color, image);
+            }
         }
 
-        case Analysis::ANALYSIS_COLOR_BLUE: {
-            return qBlue(*pixel);
-        }
+        if ((m == 0) ? (2 * Cm <= Cm1) : (Cm <= Cm1)) return;
     }
 
-    return -1;
+    double a = (Cm - Cm1) / 4.0;
+    double b = - ((D2m - D2m2) / 2.0 + Y2m1 - X2m1);
+    double c = Y2m1 - X2m1;
+
+    double D = b * b - 4 * a * c;
+
+    if (D < 0) return;
+
+    double r1 = (-b + qSqrt(D)) / (2 * a);
+    double r2 = (-b - qSqrt(D)) / (2 * a);
+    double r = qMin(r1, r2);
+
+    if (r < 0) return;
+
+    mMessageLength = r;
 }

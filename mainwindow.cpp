@@ -15,8 +15,8 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "clickablelabel.hpp"
 #include "analysis/samplepairs.h"
+#include "analysis/rs.h"
 
 
 #define SUFFLEEOFFSET 2
@@ -30,7 +30,8 @@ MainWindow::MainWindow(QWidget *parent) :
     mNumWritableChars(0),
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
-    mScaleFactor(1.0)
+    mScaleFactor(1.0),
+    mLastModified(PointGenThread::NONE)
 {
     ui->setupUi(this);
 
@@ -46,24 +47,34 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(&mPointGenThread, SIGNAL(sendMessage(QByteArray,bool,bool)), this, SLOT(receiveSecretMsg(QByteArray,bool,bool)));
     connect(&mPointGenThread, SIGNAL(updateProgress(int)), this, SLOT(setProgress(int)));
 
+    ui->scrollArea->setWidgetResizable(true);
+    ui->ImageView->setHSlider(ui->scrollArea->horizontalScrollBar());
+    ui->ImageView->setVSlider(ui->scrollArea->verticalScrollBar());
     connect(ui->ImageView, SIGNAL(clicked()), this, SLOT(on_actionOpen_triggered()));
     connect(ui->ImageView, SIGNAL(scrolled(int)), this, SLOT(slotZoom(int)));
-
-    //IMAGE VIEW MANIPULATION
-    //ui->ImageView->setBackgroundRole(QPalette::Base);
-    //ui->ImageView->setScaledContents(true);
-    ui->scrollArea->setWidgetResizable(true);
-    //ui->ImageView->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-
-//    ui->scrollArea_2->hide();
-    connect(ui->action_Stego_Image, SIGNAL(toggled(bool)), this, SLOT(slotChangeStegoImgVisib(bool)));
-
+    connect(ui->ImageView, SIGNAL(mousePressedAndMoved(QPoint)), this, SLOT(slotImgMoveTool(QPoint)));
+    //-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//
     connect(ui->actionZoom_In_25, SIGNAL(triggered()), this, SLOT(slotZoomIn()));
     connect(ui->actionZoom_Out_25, SIGNAL(triggered()), this, SLOT(slotZoomOut()));
     connect(ui->action_Normal_Size, SIGNAL(triggered()), this, SLOT(slotNormalSize()));
     connect(ui->action_New, SIGNAL(triggered()), this, SLOT(on_actionOpen_triggered()));
-    connect(ui->ImageView, SIGNAL(mousePressedAndMoved(QPoint)), this, SLOT(slotImgMoveTool(QPoint)));
+    connect(ui->actionOnly_LSB_Red, SIGNAL(triggered()), this, SLOT(slotOnlyLSBRed()));
+    connect(ui->actionOnly_LSB_Green, SIGNAL(triggered()), this, SLOT(slotOnlyLSBGreen()));
+    connect(ui->actionOnly_LSB_Blue, SIGNAL(triggered()), this, SLOT(slotOnlyLSBBlue()));
+    connect(ui->actionOnly_LSB_All, SIGNAL(triggered()), this, SLOT(slotOnlyLSBAll()));
+    connect(ui->actionNormal_View, SIGNAL(triggered()), this, SLOT(slotOnlyLSBNormal()));
+
+    ui->scrollArea_2->hide();
+    ui->scrollArea_2->setWidgetResizable(true);
+    ui->ImageStegoView->setHSlider(ui->scrollArea_2->horizontalScrollBar());
+    ui->ImageStegoView->setVSlider(ui->scrollArea_2->verticalScrollBar());
+    connect(ui->ImageStegoView, SIGNAL(scrolled(int)), this, SLOT(slotZoom(int)));
     connect(ui->ImageStegoView, SIGNAL(mousePressedAndMoved(QPoint)), this, SLOT(slotImgMoveTool(QPoint)));
+    //-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//
+    connect(ui->action_Stego_Image, SIGNAL(toggled(bool)), this, SLOT(slotChangeStegoImgVisib(bool)));
+
+
+
 
 //    connect(ui->ImageView, SIGNAL(clicked()), this, SLOT(on_test_slot()));
 
@@ -89,6 +100,138 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->compressSlider->setValue(0);*/
 
 //    openImage("/home/evilbateye/Pictures/Yoh_Asakura_by_ghettorob21.png");
+//    mViewStegoPixmap.convertFromImage(QImage::load("/home/evilbateye/Pictures/Yohs_secret.png"));
+}
+
+bool MainWindow::convertToLSB(QImage & image, PointGenThread::Color color, ClickableLabel * label)
+{
+    if (image.isNull()) return false;
+
+    if (color == PointGenThread::NONE) return false;
+
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+
+            QRgb * pixel = (&reinterpret_cast<QRgb *>(image.scanLine(j))[i]);
+
+            quint8 red = 0x00;
+            quint8 green = 0x00;
+            quint8 blue = 0x00;
+
+            switch (color) {
+                case PointGenThread::RED: {
+                    red = qRed(* pixel) & 0x01;
+                    if (red == 0x01) red = 0xFF;
+                    break;
+                }
+
+                case PointGenThread::GREEN: {
+                    green = qGreen(* pixel) & 0x01;
+                    if (green == 0x01) green = 0xFF;
+                    break;
+                }
+
+                case PointGenThread::BLUE: {
+                    blue = qBlue(* pixel) & 0x01;
+                    if (blue == 0x01) blue = 0xFF;
+                    break;
+                }
+
+                case PointGenThread::ALL: {
+                    red = qRed(* pixel) & 0x01;
+                    if (red == 0x01) red = 0xFF;
+
+                    green = qGreen(* pixel) & 0x01;
+                    if (green == 0x01) green = 0xFF;
+
+                    blue = qBlue(* pixel) & 0x01;
+                    if (blue == 0x01) blue = 0xFF;
+                    break;
+                }
+
+                case PointGenThread::NONE: break;
+                default: break;
+            }
+
+            (* pixel) = qRgba(red, green, blue, 0xFF);
+        }
+    }
+
+    if (!label) return true;
+
+    adjustMySize(image, label);
+
+    return true;
+}
+
+void MainWindow::adjustMySize(QImage & image, ClickableLabel * label)
+{
+    QPixmap tmp;
+    tmp.convertFromImage(image.scaled(mScaleFactor * image.size()));
+    label->setPixmap(tmp);
+}
+
+void MainWindow::adjustMyScrollBars()
+{
+    ui->scrollArea_2->updateGeometry();
+    ui->scrollArea_2->horizontalScrollBar()->setValue(ui->scrollArea->horizontalScrollBar()->value());
+    ui->scrollArea_2->verticalScrollBar()->setValue(ui->scrollArea->verticalScrollBar()->value());
+}
+
+void MainWindow::slotOnlyLSBNormal()
+{
+    resetImages(PointGenThread::NONE);
+    adjustMySize(mModifiedImg, ui->ImageView);
+    if (!mModifiedStego.isNull()) {
+        adjustMySize(mModifiedStego, ui->ImageStegoView);
+        adjustMyScrollBars();
+    }
+}
+
+bool MainWindow::resetImages(PointGenThread::Color color)
+{
+    if (mLastModified == PointGenThread::NONE) return true;
+
+    if (mLastModified != color) {
+        mModifiedImg = mImg;
+        if (!mModifiedStego.isNull()) mModifiedStego = mPointGenThread.getImg();
+        mLastModified = PointGenThread::NONE;
+        return true;
+    }
+
+    return false;
+}
+
+void MainWindow::slotOnlyLSBAll()
+{
+    if (resetImages(PointGenThread::ALL)) {
+        if (convertToLSB(mModifiedImg, PointGenThread::ALL, ui->ImageView)) mLastModified = PointGenThread::ALL;
+        if (convertToLSB(mModifiedStego, PointGenThread::ALL, ui->ImageStegoView)) adjustMyScrollBars();
+    }
+}
+
+void MainWindow::slotOnlyLSBBlue()
+{
+    if (resetImages(PointGenThread::BLUE)) {
+        if (convertToLSB(mModifiedImg, PointGenThread::BLUE, ui->ImageView)) mLastModified = PointGenThread::BLUE;
+        if (convertToLSB(mModifiedStego, PointGenThread::BLUE, ui->ImageStegoView)) adjustMyScrollBars();
+    }
+}
+
+void MainWindow::slotOnlyLSBGreen()
+{
+    if (resetImages(PointGenThread::GREEN)) {
+        if (convertToLSB(mModifiedImg, PointGenThread::GREEN, ui->ImageView)) mLastModified = PointGenThread::GREEN;
+        if (convertToLSB(mModifiedStego, PointGenThread::GREEN, ui->ImageStegoView)) adjustMyScrollBars();
+    }
+}
+
+void MainWindow::slotOnlyLSBRed()
+{
+    if (resetImages(PointGenThread::RED)){
+        if (convertToLSB(mModifiedImg, PointGenThread::RED, ui->ImageView)) mLastModified = PointGenThread::RED;
+        if (convertToLSB(mModifiedStego, PointGenThread::RED, ui->ImageStegoView)) adjustMyScrollBars();
+    }
 }
 
 void MainWindow::slotImgMoveTool(QPoint p)
@@ -98,7 +241,7 @@ void MainWindow::slotImgMoveTool(QPoint p)
         ui->scrollArea->verticalScrollBar()->setValue(ui->scrollArea->verticalScrollBar()->value() + p.y());
     }
 
-    if (!mViewStegoPixmap.isNull()) {
+    if (!mModifiedStego.isNull()) {
         ui->scrollArea_2->horizontalScrollBar()->setValue(ui->scrollArea_2->horizontalScrollBar()->value() + p.x());
         ui->scrollArea_2->verticalScrollBar()->setValue(ui->scrollArea_2->verticalScrollBar()->value() + p.y());
     }
@@ -134,25 +277,92 @@ void MainWindow::on_makeAnalysisButton_clicked()
 
     if (ui->samplePairsCheckBox->isChecked()) {
         SamplePairs sp;
-        double avg, result;
-        avg = result = 0;
+        double avg = 0.0;
         QString outText;
 
         outText.append("\n------------------------------------------\nSample Pairs Analysis\n------------------------------------------\n");
 
-        result = sp.analyse(mImg, Analysis::ANALYSIS_COLOR_RED);
-        avg += result;
-        outText.append("Percentage in red: " + QString::number(result * 100) + "%\n");
+        sp.analyse(mImg, Analysis::ANALYSIS_COLOR_RED);
+        avg += sp.getMessageLength();
+        outText.append("Percentage in red: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
-        result = sp.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN);
-        avg += result;
-        outText.append("Percentage in green: " + QString::number(result * 100) + "%\n");
+        sp.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN);
+        avg += sp.getMessageLength();
+        outText.append("Percentage in green: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
-        result = sp.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE);
-        avg += result;
-        outText.append("Percentage in blue: " + QString::number(result * 100) + "%\n");
+        sp.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE);
+        avg += sp.getMessageLength();
+        outText.append("Percentage in blue: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
         outText.append("Average percentage: " + QString::number((avg / 3) * 100) + "%\n");
+
+
+        outText.append("\n------------------------------------------\nSample Pairs Analysis Old\n------------------------------------------\n");
+        avg = 0.0;
+        sp.analyseOld(mImg, Analysis::ANALYSIS_COLOR_RED);
+        avg += sp.getMessageLength();
+        outText.append("Percentage in red: " + QString::number(sp.getMessageLength() * 100) + "%\n");
+
+        sp.analyseOld(mImg, Analysis::ANALYSIS_COLOR_GREEN);
+        avg += sp.getMessageLength();
+        outText.append("Percentage in green: " + QString::number(sp.getMessageLength() * 100) + "%\n");
+
+        sp.analyseOld(mImg, Analysis::ANALYSIS_COLOR_BLUE);
+        avg += sp.getMessageLength();
+        outText.append("Percentage in blue: " + QString::number(sp.getMessageLength() * 100) + "%\n");
+
+        outText.append("Average percentage: " + QString::number((avg / 3) * 100) + "%\n");
+
+        if (ui->consoleOutputCheckBox->isChecked()) {
+            ui->consoleOutput->appendPlainText(outText);
+        }
+
+        if (!tmpFileName.isEmpty()) {
+            QFile file(mAnalysisOutFileName);
+            file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+            QTextStream out(&file);
+            out << outText;
+            file.close();
+        }
+    }
+
+    if (ui->checkBoxRS->isChecked()) {
+        RS rs;
+        double avg;
+        avg = 0;
+        QString outText;
+
+        outText.append("\n------------------------------------------\nRS Analysis\n------------------------------------------\n");
+
+        outText.append("\n(non-overlapping groups)\n");
+
+        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_RED, false);
+        avg += rs.getMessageLength();
+        outText.append("Percentage in red: " + QString::number(rs.getMessageLength() * 100) + "%\n");
+
+        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN, false);
+        avg += rs.getMessageLength();
+        outText.append("Percentage in green: " + QString::number(rs.getMessageLength() * 100) + "%\n");
+
+        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE, false);
+        avg += rs.getMessageLength();
+        outText.append("Percentage in blue: " + QString::number(rs.getMessageLength() * 100) + "%\n");
+
+        outText.append("\n(overlapping groups)\n");
+
+        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_RED, true);
+        avg += rs.getMessageLength();
+        outText.append("Percentage in red: " + QString::number(rs.getMessageLength() * 100) + "%\n");
+
+        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN, true);
+        avg += rs.getMessageLength();
+        outText.append("Percentage in green: " + QString::number(rs.getMessageLength() * 100) + "%\n");
+
+        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE, true);
+        avg += rs.getMessageLength();
+        outText.append("Percentage in blue: " + QString::number(rs.getMessageLength() * 100) + "%\n");
+
+        outText.append("\nAverage percentage: " + QString::number((avg / 6) * 100) + "%\n");
 
         if (ui->consoleOutputCheckBox->isChecked()) {
             ui->consoleOutput->appendPlainText(outText);
@@ -170,8 +380,13 @@ void MainWindow::on_makeAnalysisButton_clicked()
 
 void MainWindow::slotNormalSize()
 {
-    ui->ImageView->setPixmap(mViewPixmap);
-    if (!mViewStegoPixmap.isNull()) ui->ImageStegoView->setPixmap(mViewStegoPixmap);
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(mModifiedImg);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(mModifiedStego)) ui->ImageStegoView->setPixmap(tmps);
+
     mScaleFactor = 1.0f;
 }
 
@@ -179,6 +394,8 @@ void MainWindow::slotZoomIn() {slotZoom(1);}
 void MainWindow::slotZoomOut() {slotZoom(-1);}
 void MainWindow::slotZoom(int scrollDelta)
 {
+    if (mFileName.isEmpty()) return;
+
     if (scrollDelta > 0) {
         if (mScaleFactor > 3.0) return;
         scaleImage(1.25);
@@ -193,21 +410,28 @@ void MainWindow::slotZoom(int scrollDelta)
 
 void MainWindow::scaleImage(float factor)
 {
+    QPixmap tmp, tmps;
+
     mScaleFactor *= factor;
     ui->statusBar->showMessage(QString().sprintf("Zoom %.0f%%", mScaleFactor * 100), 2000);
 
-    QSize size = mScaleFactor * mViewPixmap.size();
-    ui->ImageView->setPixmap(mViewPixmap.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
-    if (!mViewStegoPixmap.isNull()) ui->ImageStegoView->setPixmap(mViewStegoPixmap.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+    QSize size = mScaleFactor * mModifiedImg.size();
 
+//    tmp.convertFromImage(mModifiedImg.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+    tmp.convertFromImage(mModifiedImg.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+    ui->ImageView->setPixmap(tmp);
 
-    /*ui->scrollArea->horizontalScrollBar()->setValue(
-                int(mScaleFactor * ui->scrollArea->horizontalScrollBar()->value() +
-                    ((mScaleFactor - 1) * ui->scrollArea->horizontalScrollBar()->pageStep()/2)));*/
+//    if (tmp.convertFromImage(mModifiedStego.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)))
+    if (tmps.convertFromImage(mModifiedStego.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation)))
+        ui->ImageStegoView->setPixmap(tmps);
 
-    /*ui->scrollArea->verticalScrollBar()->setValue(
-                int(mScaleFactor * ui->scrollArea->verticalScrollBar()->value() +
-                    ((mScaleFactor - 1) * ui->scrollArea->verticalScrollBar()->pageStep()/2)));*/
+//    ui->scrollArea->horizontalScrollBar()->setValue(
+//                int(mScaleFactor * ui->scrollArea->horizontalScrollBar()->value()
+//                    + ((mScaleFactor - 1) * ui->scrollArea->horizontalScrollBar()->pageStep()/2)));
+
+//    ui->scrollArea->verticalScrollBar()->setValue(
+//                int(mScaleFactor * ui->scrollArea->verticalScrollBar()->value()
+//                    + ((mScaleFactor - 1) * ui->scrollArea->verticalScrollBar()->pageStep()/2)));
 }
 
 MainWindow::~MainWindow()
@@ -305,11 +529,13 @@ void MainWindow::on_encodeMaxCheckBox_clicked()
         ui->green_radio->setEnabled(false);
         ui->blue_radio->setEnabled(false);
         ui->all_radio->setEnabled(false);
+        ui->lookAheadRadio->setEnabled(true);
     } else {
         ui->red_radio->setEnabled(true);
         ui->green_radio->setEnabled(true);
         ui->blue_radio->setEnabled(true);
         ui->all_radio->setEnabled(true);
+        ui->lookAheadRadio->setEnabled(false);
     }
 
     updateStatusBar();
@@ -399,15 +625,18 @@ void MainWindow::threadEncodeHandler(bool succ)
 
         if (!saveFileName.isEmpty()) {
             mPointGenThread.getImg().save(saveFileName);
-            mViewStegoPixmap.convertFromImage(mPointGenThread.getImg());
-            ui->ImageStegoView->setPixmap(mViewStegoPixmap.scaled(mScaleFactor * mViewStegoPixmap.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
 
-            qDebug() << ui->scrollArea->horizontalScrollBar()->value();
-            qDebug() << ui->scrollArea_2->horizontalScrollBar()->value();
-            ui->scrollArea_2->horizontalScrollBar()->setValue(ui->scrollArea->horizontalScrollBar()->value());
-            qDebug() << ui->scrollArea_2->horizontalScrollBar()->value();
+            mModifiedStego = mPointGenThread.getImg();
 
-            ui->scrollArea_2->verticalScrollBar()->setValue(ui->scrollArea->verticalScrollBar()->value());
+            if (!convertToLSB(mModifiedStego, mLastModified, ui->ImageStegoView)) {
+                adjustMySize(mModifiedStego, ui->ImageStegoView);
+            }
+
+            ui->scrollArea_2->adjustSize();
+            ui->scrollArea_2->horizontalScrollBar()->setMaximum(ui->scrollArea->horizontalScrollBar()->maximum());
+
+            adjustMyScrollBars();
+
         }
     }
 
@@ -456,22 +685,32 @@ void MainWindow::receiveSecretMsg(QByteArray msgBytes, bool compressed, bool enc
 
 void MainWindow::on_actionOpen_triggered()
 {    
-    QString tmpFileName = QFileDialog::getOpenFileName(this, tr("Open Image"), mFileName.isEmpty() ? QString() : mFileName, tr("Image Files (*.png *.bmp)"));
+    QString tmpFileName = QFileDialog::getOpenFileName(this, tr("Open Image"), mFileName, tr("Image Files (*.png *.bmp)"));
 
     if (!tmpFileName.isEmpty()) {
 
         openImage(tmpFileName);
         mScaleFactor = 1.0f;
+        mLastModified = PointGenThread::NONE;
     }
 }
 
 void MainWindow::openImage(QString name)
 {
+    QPixmap tmp;
+
     mFileName = name;
 
     mImg.load(mFileName);
-    mViewPixmap.convertFromImage(mImg);
-    ui->ImageView->setPixmap(mViewPixmap);
+
+    mModifiedImg = mImg;
+
+    tmp.convertFromImage(mModifiedImg);
+    ui->ImageView->setPixmap(tmp);
+
+    ui->ImageStegoView->setPixmap(0);
+    ui->ImageStegoView->setText("stego image");
+    mModifiedStego = QImage();
 
     ui->decodeButton->setEnabled(true);
 
@@ -488,6 +727,7 @@ void MainWindow::openImage(QString name)
     if (!mPassword.isEmpty()) ui->encryptCheckBox->setEnabled(true);
 
     ui->encodeMaxCheckBox->setEnabled(true);
+    ui->lookAheadRadio->setEnabled(true);
 
     if (ui->radioButtonText->isChecked())
     {
@@ -538,9 +778,10 @@ void MainWindow::on_actionEncode_triggered()
     }
 
     mPointGenThread.setUp(mImg, mSecretBytes, qChecksum(mPassword.toStdString().c_str(), mPassword.size()), true,
-                          (ui->compressSlider->value())? true : false,
+                          (ui->compressSlider->value()) ? true : false,
                           ui->encryptCheckBox->isChecked(),
                           ui->encodeMaxCheckBox->isChecked(),
+                          ui->lookAheadRadio->isChecked(),
                           color);
     mPointGenThread.start();
 }
@@ -573,7 +814,7 @@ void MainWindow::on_radioButtonText_clicked()
 
 void MainWindow::on_openDataButton_clicked()
 {
-    QString tmpFileName = QFileDialog::getOpenFileName(this, tr("Open Data"), mDataFileName.isEmpty() ? QString() : mDataFileName);
+    QString tmpFileName = QFileDialog::getOpenFileName(this, tr("Open Data"), mDataFileName);
 
     if (!tmpFileName.isEmpty()) {
 

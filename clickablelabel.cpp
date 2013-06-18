@@ -31,6 +31,12 @@ void ClickableLabel::mouseMoveEvent(QMouseEvent * e)
 {
     if (e->buttons() == Qt::LeftButton) {
         mDiff = (mPoint - e->pos()) + mDiff;
+
+        if (mHSB->value() == mHSB->minimum() && mDiff.x() < 0) mDiff.setX(0);
+        if (mHSB->value() == mHSB->maximum() && mDiff.x() > 0) mDiff.setX(0);
+        if (mVSB->value() == mVSB->minimum() && mDiff.y() < 0) mDiff.setY(0);
+        if (mVSB->value() == mVSB->maximum() && mDiff.y() > 0) mDiff.setY(0);
+
         emit mousePressedAndMoved(mDiff);
         mPoint = e->pos();
     }
