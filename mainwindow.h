@@ -44,7 +44,6 @@ private slots:
     void setProgress(int val);
     void receiveSecretMsg(QByteArray msgBytes, bool compressed, bool encrypted);
 
-    void on_encodeMaxCheckBox_clicked();
     void on_encryptCheckBox_clicked();
 
     void on_radioButtonData_clicked();
@@ -67,6 +66,14 @@ private slots:
 
     void on_makeAnalysisButton_clicked();
 
+    void on_red_radio_clicked(bool checked);
+
+    void on_green_radio_clicked(bool checked);
+
+    void on_blue_radio_clicked(bool checked);
+
+    void on_lookAheadRadio_clicked(bool checked);
+
 private:
     Ui::MainWindow *ui;
     QString mPassword;
@@ -88,6 +95,8 @@ private:
 
     QString mAnalysisOutFileName;
 
+    quint8 mNumOfSelectedColors;
+
     void updateStatusBar();
     void setNumMax();
     QByteArray encrypt(QByteArray msg);
@@ -103,7 +112,4 @@ private:
 };
 
 #endif // MAINWINDOW_H
-
-
-
 

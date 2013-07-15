@@ -18,10 +18,10 @@
 #include "analysis/samplepairs.h"
 #include "analysis/rs.h"
 
-
 #define SUFFLEEOFFSET 2
-#define SIZE_ENCODE_OFFSET 24
-#define SETTINGS_OFFSET 3
+#define NUM_OF_SIZE_BITS 24
+#define NUM_OF_SETTINGS_BITS 6
+#define NUM_OF_SETTINGS_PIXELS ((NUM_OF_SETTINGS_BITS % 3 == 0) ? (NUM_OF_SETTINGS_BITS / 3) : ((NUM_OF_SETTINGS_BITS / 3) + 1))
 
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -31,7 +31,8 @@ MainWindow::MainWindow(QWidget *parent) :
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
     mScaleFactor(1.0),
-    mLastModified(PointGenThread::NONE)
+    mLastModified(PointGenThread::NONE),
+    mNumOfSelectedColors(3)
 {
     ui->setupUi(this);
 
@@ -439,19 +440,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-
-void MainWindow::setNumMax()
-{
-    if (!ui->encodeMaxCheckBox->isChecked())
-    {
-        mNumWritableChars = (mImg.width() * mImg.height() - SUFFLEEOFFSET - SIZE_ENCODE_OFFSET - 1) / 8;
-    }
-    else
-    {
-        mNumWritableChars = ((mImg.width() * mImg.height() - 1 - SUFFLEEOFFSET) * 3 - SIZE_ENCODE_OFFSET) / 8;
-    }
-}
-
 void MainWindow::setProgress(int val)
 {
     mPgBar->setValue(mPgBar->value() + val);
@@ -520,24 +508,43 @@ void MainWindow::compressSliderChangedHandler(int change)
     updateStatusBar();
 }
 
-void MainWindow::on_encodeMaxCheckBox_clicked()
+void MainWindow::setNumMax()
 {
+    mNumOfSelectedColors = 0;
+    if (ui->red_radio->isChecked()) mNumOfSelectedColors++;
+    if (ui->green_radio->isChecked()) mNumOfSelectedColors++;
+    if (ui->blue_radio->isChecked()) mNumOfSelectedColors++;
+
+    mNumWritableChars = ((mImg.width() * mImg.height() - SUFFLEEOFFSET - NUM_OF_SETTINGS_PIXELS - PointGenThread::getMessageSizeInPixels(NUM_OF_SIZE_BITS, mNumOfSelectedColors)) * mNumOfSelectedColors) / 8 ;
+}
+
+
+void MainWindow::on_red_radio_clicked(bool checked)
+{
+    Q_UNUSED(checked);
     setNumMax();
+    updateStatusBar();
+}
 
-    if (ui->encodeMaxCheckBox->isChecked()) {
-        ui->red_radio->setEnabled(false);
-        ui->green_radio->setEnabled(false);
-        ui->blue_radio->setEnabled(false);
-        ui->all_radio->setEnabled(false);
-        ui->lookAheadRadio->setEnabled(true);
-    } else {
-        ui->red_radio->setEnabled(true);
-        ui->green_radio->setEnabled(true);
-        ui->blue_radio->setEnabled(true);
-        ui->all_radio->setEnabled(true);
-        ui->lookAheadRadio->setEnabled(false);
-    }
+void MainWindow::on_green_radio_clicked(bool checked)
+{
+    Q_UNUSED(checked);
+    setNumMax();
+    updateStatusBar();
+}
 
+void MainWindow::on_blue_radio_clicked(bool checked)
+{
+    Q_UNUSED(checked);
+    setNumMax();
+    updateStatusBar();
+}
+
+void MainWindow::on_lookAheadRadio_clicked(bool checked)
+{
+    ui->red_radio->setEnabled(!checked);
+    ui->green_radio->setEnabled(!checked);
+    ui->blue_radio->setEnabled(!checked);
     updateStatusBar();
 }
 
@@ -599,9 +606,13 @@ void MainWindow::updateStatusBar()
 {
     int size = mSecretBytes.size();
 
-    if (mImg.isNull())
-    {
+    if (mImg.isNull()) {
         ui->statusBar->showMessage(QString::number(size)  + " characters", 2000);
+        return;
+    }
+
+    if (ui->lookAheadRadio->isChecked()) {
+        ui->statusBar->showMessage(QString::number(size) + " / ? characters", 2000);
         return;
     }
 
@@ -726,8 +737,10 @@ void MainWindow::openImage(QString name)
 
     if (!mPassword.isEmpty()) ui->encryptCheckBox->setEnabled(true);
 
-    ui->encodeMaxCheckBox->setEnabled(true);
     ui->lookAheadRadio->setEnabled(true);
+    ui->red_radio->setEnabled(true);
+    ui->green_radio->setEnabled(true);
+    ui->blue_radio->setEnabled(true);
 
     if (ui->radioButtonText->isChecked())
     {
@@ -760,7 +773,7 @@ void MainWindow::on_actionEncode_triggered()
     ui->encodeButton->setEnabled(false);
     ui->decodeButton->setEnabled(false);
 
-    PointGenThread::Color color;
+    /*PointGenThread::Color color;
     if (ui->encodeMaxCheckBox->isChecked()) {
         color = PointGenThread::NONE;
     } else {
@@ -775,14 +788,15 @@ void MainWindow::on_actionEncode_triggered()
         } else {
             color = PointGenThread::NONE;
         }
-    }
+    }*/
 
     mPointGenThread.setUp(mImg, mSecretBytes, qChecksum(mPassword.toStdString().c_str(), mPassword.size()), true,
                           (ui->compressSlider->value()) ? true : false,
                           ui->encryptCheckBox->isChecked(),
-                          ui->encodeMaxCheckBox->isChecked(),
                           ui->lookAheadRadio->isChecked(),
-                          color);
+                          ui->red_radio->isChecked(),
+                          ui->green_radio->isChecked(),
+                          ui->blue_radio->isChecked());
     mPointGenThread.start();
 }
 
@@ -844,15 +858,15 @@ void MainWindow::on_openDataButton_clicked()
 
             if (!mPassword.isEmpty()) ui->encryptCheckBox->setEnabled(true);
 
-            ui->encodeMaxCheckBox->setEnabled(true);
             ui->red_radio->setEnabled(true);
             ui->green_radio->setEnabled(true);
             ui->blue_radio->setEnabled(true);
-            ui->all_radio->setEnabled(true);
         }
 
         dataFile.close();
     }
 }
+
+
 
 

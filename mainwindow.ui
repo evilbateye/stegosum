@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>843</width>
+    <width>916</width>
     <height>390</height>
    </rect>
   </property>
@@ -194,7 +194,7 @@
                 <bool>true</bool>
                </property>
                <property name="plainText">
-                <string>write secret message here ...</string>
+                <string>a</string>
                </property>
               </widget>
              </item>
@@ -217,8 +217,8 @@
             </layout>
            </item>
            <item>
-            <layout class="QVBoxLayout" name="verticalLayout_2">
-             <item>
+            <layout class="QGridLayout" name="gridLayout_4">
+             <item row="0" column="0">
               <layout class="QHBoxLayout" name="horizontalLayout_3">
                <item>
                 <widget class="QRadioButton" name="radioButtonText">
@@ -239,7 +239,7 @@
                </item>
               </layout>
              </item>
-             <item>
+             <item row="1" column="0">
               <layout class="QHBoxLayout" name="horizontalLayout_5">
                <item>
                 <widget class="QLabel" name="copmressLabel">
@@ -281,7 +281,7 @@
                </item>
               </layout>
              </item>
-             <item>
+             <item row="2" column="0">
               <widget class="QSlider" name="compressSlider">
                <property name="enabled">
                 <bool>false</bool>
@@ -321,7 +321,7 @@
                </property>
               </widget>
              </item>
-             <item>
+             <item row="3" column="0">
               <widget class="QCheckBox" name="encryptCheckBox">
                <property name="enabled">
                 <bool>false</bool>
@@ -331,32 +331,7 @@
                </property>
               </widget>
              </item>
-             <item>
-              <widget class="QCheckBox" name="encodeMaxCheckBox">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>11</pointsize>
-                 <weight>50</weight>
-                 <bold>false</bold>
-                 <stylestrategy>PreferDefault</stylestrategy>
-                 <kerning>true</kerning>
-                </font>
-               </property>
-               <property name="layoutDirection">
-                <enum>Qt::LeftToRight</enum>
-               </property>
-               <property name="text">
-                <string> 3 channel encode</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item>
+             <item row="4" column="0">
               <widget class="QCheckBox" name="lookAheadRadio">
                <property name="enabled">
                 <bool>false</bool>
@@ -369,10 +344,10 @@
                </property>
               </widget>
              </item>
-             <item>
+             <item row="5" column="0">
               <layout class="QHBoxLayout" name="horizontalLayout_6">
                <item>
-                <widget class="QRadioButton" name="red_radio">
+                <widget class="QCheckBox" name="red_radio">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -388,13 +363,10 @@
                  <property name="checked">
                   <bool>true</bool>
                  </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup</string>
-                 </attribute>
                 </widget>
                </item>
                <item>
-                <widget class="QRadioButton" name="green_radio">
+                <widget class="QCheckBox" name="green_radio">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -407,13 +379,13 @@
                  <property name="text">
                   <string>green</string>
                  </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup</string>
-                 </attribute>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
                 </widget>
                </item>
                <item>
-                <widget class="QRadioButton" name="blue_radio">
+                <widget class="QCheckBox" name="blue_radio">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -427,32 +399,16 @@
                   <string>blue</string>
                  </property>
                  <property name="checked">
-                  <bool>false</bool>
+                  <bool>true</bool>
                  </property>
                  <property name="autoExclusive">
                   <bool>false</bool>
                  </property>
-                 <attribute name="buttonGroup">
-                  <string notr="true">buttonGroup</string>
-                 </attribute>
                 </widget>
                </item>
               </layout>
              </item>
-             <item>
-              <widget class="QRadioButton" name="all_radio">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="text">
-                <string>all</string>
-               </property>
-               <attribute name="buttonGroup">
-                <string notr="true">buttonGroup</string>
-               </attribute>
-              </widget>
-             </item>
-             <item>
+             <item row="6" column="0">
               <spacer name="verticalSpacer">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -597,7 +553,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>843</width>
+     <width>916</width>
      <height>25</height>
     </rect>
    </property>
@@ -806,7 +762,4 @@
    </hints>
   </connection>
  </connections>
- <buttongroups>
-  <buttongroup name="buttonGroup"/>
- </buttongroups>
 </ui>
