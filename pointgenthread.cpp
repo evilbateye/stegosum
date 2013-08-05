@@ -1,8 +1,7 @@
+#include <algorithm>
+#include <cstdarg>
 #include "pointgenthread.h"
-#define SUFFLEEOFFSET 2
-#define NUM_OF_SIZE_BITS 24
-#define NUM_OF_SETTINGS_BITS 6
-#define NUM_OF_SETTINGS_PIXELS ((NUM_OF_SETTINGS_BITS % 3 == 0) ? (NUM_OF_SETTINGS_BITS / 3) : ((NUM_OF_SETTINGS_BITS / 3) + 1))
+
 
 PointGenThread::PointGenThread(QWidget *parent) :
     QThread(parent), mEncode(true), mIsEncrypt(false)
@@ -15,7 +14,7 @@ void PointGenThread::run()
     else emit succes(Decode(mImg, mKey));
 }
 
-void PointGenThread::setUp(const QImage & img, QByteArray & msg, quint16 key, bool encode, bool isCompress, bool isEncrypt, bool isLookAhead, bool colorR, bool colorG, bool colorB)
+void PointGenThread::setUp(const QImage & img, QByteArray & msg, quint16 key, colorsObj & color, bool encode, bool isCompress, bool isEncrypt, bool isLookAhead, bool isMeta)
 {
     mImg = img;
     mMsg = msg;
@@ -25,10 +24,9 @@ void PointGenThread::setUp(const QImage & img, QByteArray & msg, quint16 key, bo
     mIsCompress = isCompress;
     mIsEncrypt = isEncrypt;
     mIsLookAhead = isLookAhead;
+    mIsMeta = isMeta;
 
-    mColors[0] = colorR;
-    mColors[1] = colorG;
-    mColors[2] = colorB;
+    mColors = color;
 }
 
 const QImage & PointGenThread::getImg()
@@ -45,220 +43,280 @@ void PointGenThread::numToBits(quint32 msgSize, quint32 shift, QVector<bool> & m
     }
 }
 
-quint32 PointGenThread::bitsToNum(quint32 numBitsCount, QVector<bool> & msgBoolVect, quint32 shift)
+quint32 PointGenThread::bitsToNum(qint32 numBitsCount, QVector<bool> & msgBoolVect)
 {
+    if (numBitsCount > msgBoolVect.size()) return 0;
 
     quint32 msgSize = 0x00000000;
 
-    for (quint32 i = 0; i < numBitsCount; i++) {
-        if (msgBoolVect[i + shift]) {
-            msgSize = msgSize | (0x00000001 << i);
-        }
+    for (qint32 i = 0; i < numBitsCount; i++) {
+        msgSize |= (msgBoolVect.first() << i);
+        msgBoolVect.pop_front();
     }
 
     return msgSize;
 }
 
-//Old and slow algorithm with many collisions (Already generated pseudorandom numbers).
-void PointGenThread::shuffle(qint32 msgSizeB, QImage & image, quint16 key, QVector<QPoint> & pointsList)
-{
-    qint32 numImgPixels = image.height() * image.width() - SUFFLEEOFFSET;
-
-    QRgb * first2pixels = (QRgb *) image.bits();
-
-    quint32 seed = key ^ (first2pixels[0] + first2pixels[1]);
-
-    qsrand(seed);
-
-    while (pointsList.count() < msgSizeB && pointsList.count() < numImgPixels) {
-        QPoint p;
-        do {
-
-            int pos = qrand() % numImgPixels + SUFFLEEOFFSET;
-            p = QPoint(pos % image.width(), pos / image.width());
-
-        } while (pointsList.contains(p));
-
-        pointsList.append(p);
-
-        if (mEncode) emit updateProgress(pointsList.size());
-
-    }
-}
-
-//New algorithm using shuffle to generate only unique pseudorandom numbers (Much faster).
-void PointGenThread::generatePixelPoints(qint32 msgSizeB, QList<QRgb *> & pointsList, QVector<QRgb *> & pixVect, quint8 offset)
-{
-//    emit setMaximum(msgSizeB);
-//    int count = 0;
-
-    quint32 start = pixVect.size() - 1 - offset;
-
-    for (quint32 i = start; i > start - msgSizeB; i--) {
-
-        quint32 pos = qrand() % (i + 1 - SUFFLEEOFFSET) + SUFFLEEOFFSET;
-
-        pointsList.append(pixVect[pos]);
-
-        //upgrade emission, slowing down coding
-//        if (msgSizeB >= 100) {
-//            count++;
-//            if (count % (msgSizeB / 100) == 0)
-//                emit updateProgress(msgSizeB / 100);
-//        } else {
-//            emit updateProgress(1);
-//        }
-
-        qSwap(pixVect[i], pixVect[pos]);
-    }
-}
-
-//FIXME
-bool PointGenThread::lookAheadEncodeAlgorithm(QVector<bool> & msgBVect, QVector<QRgb *> & pixVect, quint8 offset)
-{
-    quint32 oldMsgSize = msgBVect.size();
-    resetLookAheadStatistics();
-
-    quint32 start = pixVect.size() - 1 - offset;
-
-    while (!msgBVect.isEmpty()) {
-
-        if (pixVect.isEmpty()) {
-            qDebug() << "[lookAhead] Not enough image pixels to encode the secret message.";
-            qDebug() << "[lookAhead] There are " << mLAobj[3].total << " colors with 3 bits encoded.";
-            qDebug() << "[lookAhead] There are " << mLAobj[2].total << " colors with 2 bits encoded.";
-            qDebug() << "[lookAhead] There are " << mLAobj[1].total << " colors with 1 bits encoded.";
-            qDebug() << "[lookAhead] There are " << mLAobj[0].total << " colors with 0 bits encoded.";
-            return false;
-        }
-
-        quint32 pos = qrand() % (start + 1 - SUFFLEEOFFSET) + SUFFLEEOFFSET;
-
-        QRgb * pixel = pixVect[pos];
-        quint8 red = qRed(*pixel);
-        quint8 green = qGreen(*pixel);
-        quint8 blue = qBlue(*pixel);
-
-        red = getEmbeddedLookAheadColor(msgBVect, red, PointGenThread::RED);
-        green = getEmbeddedLookAheadColor(msgBVect, green, PointGenThread::GREEN);
-        blue = getEmbeddedLookAheadColor(msgBVect, blue, PointGenThread::BLUE);
-
-        *pixel = qRgba(red, green, blue, qAlpha(*pixel));
-
-        qSwap(pixVect[start--], pixVect[pos]);
+QRgb * PointGenThread::nextPixel(qint32 & start, QVector<QRgb *> & pixVect) {
+    if (start < SUFFLEEOFFSET) {
+        qDebug() << "Not enough image pixels to encode the secret message.";
+        qDebug() << "There are " << mStats[3].total << " colors with 3 bits encoded.";
+        qDebug() << "There are " << mStats[2].total << " colors with 2 bits encoded.";
+        qDebug() << "There are " << mStats[1].total << " colors with 1 bits encoded.";
+        qDebug() << "There are " << mStats[0].total << " colors with 0 bits encoded.";
+        return 0;
     }
 
-    qDebug() << "[lookAhead] Message encoded succesfully.";
-    qDebug() << "[lookAhead] There are " << mLAobj[3].total << " colors with 3 bits encoded.";
-    qDebug() << "[lookAhead] There are " << mLAobj[2].total << " colors with 2 bits encoded.";
-    qDebug() << "[lookAhead] There are " << mLAobj[1].total << " colors with 1 bits encoded.";
-    qDebug() << "[lookAhead] There are " << mLAobj[0].total << " colors with 0 bits encoded.";
-
-    quint32 total = mLAobj[0].total + mLAobj[1].total + mLAobj[2].total + mLAobj[3].total;
-    qDebug() << "[lookAhead] Total of " << total << " colors are encoded.";
-    qDebug() << "[lookAhead] Old message size is " << oldMsgSize << " bits (" << (((oldMsgSize % 3) == 0) ? oldMsgSize / 3 : oldMsgSize / 3 + 1) << " pixels with LSB encoding).";
-
-    quint32 pixels = (((total % 3) == 0) ? total / 3 : total / 3 + 1);
-    qDebug() << "[lookAhead] New message size is " << total * 2 <<  " bits. (" << pixels << " pixels with LSB (0. bit) and 1. bit encoding (would be " << pixels * 2 << " pixels with only LSB encoding))";
-    qDebug() << "[lookAhead] New message is " << ((total * 2) * 100) / oldMsgSize << "% from the old one.";
-
-    return true;
+    quint32 pos = qrand() % (start + 1 - SUFFLEEOFFSET) + SUFFLEEOFFSET;
+    QRgb * pixel = pixVect[pos];
+    qSwap(pixVect[start--], pixVect[pos]);
+    return pixel;
 }
 
-void PointGenThread::resetLookAheadStatistics()
+qint32 PointGenThread::encodeLookAhead(qint32 & start, variationObj variation, bool isMeta, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
 {
-    for (int i = 0; i < 4; i++) {
-        mLAobj[i].bitsR = 0;
-        mLAobj[i].bitsG = 0;
-        mLAobj[i].bitsB = 0;
-        mLAobj[i].total = 0;
-    }
-}
+    qint32 msgPtr = 0;
+    qint32 oldStart = start;
+    resetStats(mStats);
+    mMetaStats = 0;
 
-quint8 PointGenThread::getEmbeddedLookAheadColor(QVector<bool> & msgBoolVect, quint8 colorVal, Color colorType)
-{
-    QVector<bool> lookAheadVect;
-    quint8 lookAhead = (colorVal & 0x1C) >> 2;
-    numToBits(lookAhead, 3, lookAheadVect);
+    encodeToPixel(start, pixVect, 2, colorsObj(true, true, true), 4, 1, mIsMeta, NUM_OF_VARIATIONS_BITS, variation.code);
 
-    quint8 ret = (colorVal & 0xFC);
+    if (!isMeta) {
+        while (msgPtr < msgBVect.size()) {
+            QRgb * pixel = nextPixel(start, pixVect);
+            if (!pixel) return 0;
 
-    if (!msgBoolVect.isEmpty() && msgBoolVect[0] == lookAheadVect[0]) {
+            quint8 updatedColors[3];
+            updatedColors[0] = qRed(*pixel);
+            updatedColors[1] = qGreen(*pixel);
+            updatedColors[2] = qBlue(*pixel);
 
-        msgBoolVect.pop_front();
-        lookAheadVect.pop_front();
+            qint8 perPixel = 0;
+            for (quint8 j = 0; j < 3; j++) {
+                quint8 lookAhead = updatedColors[j] >> 2;
 
-        if (!msgBoolVect.isEmpty() && msgBoolVect[0] == lookAheadVect[0]) {
+                qint8 perColor;
+                for (perColor = 0; perColor < 3; perColor++) {
+                    qint32 index = msgPtr + perPixel + perColor;
+                    if (index >= msgBVect.size()) break;
+                    if (msgBVect[index] != ((lookAhead >> variation.variation[perColor]) & 0x01)) break;
+                }
+                setStats(mStats, perColor, j);
 
-            msgBoolVect.pop_front();
-            lookAheadVect.pop_front();
+                perPixel += perColor;
 
-            if (!msgBoolVect.isEmpty() && msgBoolVect[0] == lookAheadVect[0]) {
-
-                msgBoolVect.pop_front();
-                lookAheadVect.pop_front();
-
-                lookAheadStatistics(BITS_ENCODED_3, colorType);
-                return ret | 0x03;
+                updatedColors[j] = (updatedColors[j] & 0xFC) | perColor;
             }
 
-            lookAheadStatistics(BITS_ENCODED_2, colorType);
-            return ret | 0x02;
+            msgPtr += perPixel;
+
+            *pixel = qRgba(updatedColors[0], updatedColors[1], updatedColors[2], qAlpha(*pixel));
         }
 
-        lookAheadStatistics(BITS_ENCODED_1, colorType);
-        return ret | 0x01;
+        return oldStart - start;
     }
 
-    lookAheadStatistics(BITS_ENCODED_0, colorType);
-    return ret;
+    while (msgPtr < msgBVect.size()) {
+
+        QRgb * meta = nextPixel(start, pixVect);
+        if (!meta) return 0;
+        mMetaStats++;
+
+        quint8 permutationCodes[2] = {0, 0};
+
+        for (quint8 i = 0; i < 2; i++) {
+
+            QRgb * pixel = nextPixel(start, pixVect);
+            if (!pixel) return 0;
+
+            quint8 updatedColors[3];
+            updatedColors[0] = qRed(*pixel);
+            updatedColors[1] = qGreen(*pixel);
+            updatedColors[2] = qBlue(*pixel);
+
+            permutationObj selected;
+            permutationObj tmp = {0, {0, 0, 0}, {0, 1, 2}};
+            qint8 max = -1;
+
+            do {
+                tmp.clearCounts();
+
+                qint8 perPixel = 0;
+                quint8 lookAhead;
+                for (quint8 j = 0; j < 3; j++) {
+                    lookAhead = updatedColors[tmp.permut[j]] >> 2;
+
+                    qint32 index;
+                    for (qint8 k = 0; k < 3; k++) {
+                        index = msgPtr + perPixel + k;
+                        if (index >= msgBVect.size()) break;
+                        if (msgBVect[index] != ((lookAhead >> variation.variation[k]) & 0x01)) break;
+                        tmp.counts[j]++;
+                    }
+
+                    perPixel += tmp.counts[j];
+                }
+
+                if (perPixel > max) {
+                    max = perPixel;
+                    selected.set(tmp);
+                }
+                tmp.code++;
+
+            } while (std::next_permutation(tmp.permut, tmp.permut + 3));
+
+            permutationCodes[i] = selected.code;
+            msgPtr += selected.getCountsSum();
+
+            for (quint8 j = 0; j < 3; j++) {
+                updatedColors[selected.permut[j]] = (updatedColors[selected.permut[j]] & 0xFC) | selected.counts[j];
+                setStats(mStats, selected.counts[j], j);
+            }
+
+            *pixel = qRgba(updatedColors[0], updatedColors[1], updatedColors[2], qAlpha(*pixel));
+        }
+
+        QVector<bool> metaVector;
+        numToBits(permutationCodes[0], 3, metaVector);
+        numToBits(permutationCodes[1], 3, metaVector);
+        encodeToPixel(meta, 2, colorsObj(true, true, true), metaVector);
+    }
+
+    return oldStart - start;
 }
 
-void PointGenThread::lookAheadStatistics(Bits bits, Color color)
+void PointGenThread::moveSequence(QImage & image, quint16 key, qint32 move) {
+    setSeed(image, key);
+    for (qint32 i = 0; i < move; i++) qrand();
+}
+
+//Vyhodny ak potrebujeme zmiast steganalyticke metody, ktore si budu mysliet ze sprava je minimalne 2x dlhsia :sadface:
+qint32 PointGenThread::encodeLookAhead(qint32 & start, QImage & image, quint16 key, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
+{
+    quint8 varis[6] = {0, 1, 2, 3, 4, 5};
+    variationObj tmpVar = {0, {0, 0, 0}};
+    variationObj selectedVar = {0, {0, 0, 0}};
+    qint32 offset = pixVect.size() - 1 - start;
+
+    int c = 0;
+    qint32 minimum = pixVect.size();
+    qint32 numOfGenPoints = 0;
+    do {
+        if (!tmpVar.isSame(varis)) {
+            tmpVar.set(varis, c++);
+
+            moveSequence(image, key, offset);
+
+            QVector<QRgb *> tmpPixVect(pixVect);
+            qint32 tmpStart = start;
+
+            numOfGenPoints = encodeLookAhead(tmpStart, tmpVar, mIsMeta, msgBVect, tmpPixVect);
+
+            if (numOfGenPoints && numOfGenPoints < minimum) {
+                minimum = numOfGenPoints;
+                selectedVar.set(tmpVar.variation, tmpVar.code);
+            }
+        }
+    } while (std::next_permutation(varis, varis + 6));
+
+    if (minimum == pixVect.size()) return 0;
+
+    moveSequence(image, key, offset);
+
+    return encodeLookAhead(start, selectedVar, mIsMeta, msgBVect, pixVect);
+}
+
+void PointGenThread::getPermutation(quint8 code, quint8 * permutation, quint8 selector)
+{
+    quint8 i = 0;
+    variationObj tmpVar = {0, {0, 0, 0}};
+
+    do {
+        if (tmpVar.isSame(permutation)) continue;
+        tmpVar.set(permutation, i);
+        if (code == i++) break;
+    } while (std::next_permutation(permutation, permutation + selector));
+}
+
+qint32 PointGenThread::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
+{
+    qint32 oldStart = start;
+
+    bool isMeta = false;
+    quint8 variationCode = 0;
+    decodeFromPixel(start, pixVect, 2, colorsObj(true, true, true), 4, 1, &isMeta, 7, &variationCode);
+
+    variationObj v = {variationCode, {0, 1, 2, 3, 4, 5}};
+    getPermutation(v.code, v.variation, 6);
+
+    if (!isMeta) {
+
+        while (msgBVect.size() < numOfBitsToDecode) {
+            QRgb * pixel = nextPixel(start, pixVect);
+            if (!pixel) return 0;
+
+            quint8 updatedColors[3];
+            updatedColors[0] = qRed(*pixel);
+            updatedColors[1] = qGreen(*pixel);
+            updatedColors[2] = qBlue(*pixel);
+
+            for (quint8 j = 0; j < 3; j++) {
+                for (quint8 k = 0; k < (updatedColors[j] & 0x03); k++) {
+                    msgBVect.push_back((updatedColors[j] >> (2 + v.variation[k])) & 0x01);
+                }
+            }
+        }
+
+        return oldStart - start;
+    }
+
+    while (msgBVect.size() < numOfBitsToDecode) {
+        quint8 permutationCodes[2] = {0, 0};
+        decodeFromPixel(start, pixVect, 2, colorsObj(true, true, true), 4, 3, &permutationCodes[0], 3, &permutationCodes[1]);
+
+        for (quint8 i = 0; i < 2; i++) {
+
+            QRgb * pixel = nextPixel(start, pixVect);
+            if (!pixel) return 0;
+
+            quint8 updatedColors[3];
+            updatedColors[0] = qRed(*pixel);
+            updatedColors[1] = qGreen(*pixel);
+            updatedColors[2] = qBlue(*pixel);
+
+            permutationObj p = {permutationCodes[i], {0, 0, 0}, {0, 1, 2}};
+            getPermutation(p.code, p.permut, 3);
+
+            for (quint8 j = 0; j < 3; j++) {
+                for (quint8 k = 0; k < (updatedColors[p.permut[j]] & 0x03); k++) {
+                    msgBVect.push_back((updatedColors[p.permut[j]] >> (2 + v.variation[k])) & 0x01);
+                }
+            }
+        }
+    }
+
+    return oldStart - start;
+}
+
+void PointGenThread::resetStats(statsObj * stats)
+{
+    for (int i = 0; i < 4; i++) {
+        stats[i].bitsR = 0;
+        stats[i].bitsG = 0;
+        stats[i].bitsB = 0;
+        stats[i].total = 0;
+    }
+}
+
+void PointGenThread::setStats(statsObj * stats, quint8 bits, quint8 color)
 {
     switch (color) {
-        case RED: { mLAobj[bits].bitsR++; break;}
-        case GREEN: { mLAobj[bits].bitsG++; break;}
-        case BLUE: { mLAobj[bits].bitsB++; break;}
+        case 0: { stats[bits].bitsR++; break;}
+        case 1: { stats[bits].bitsG++; break;}
+        case 2: { stats[bits].bitsB++; break;}
     }
-    mLAobj[bits].total++;
-}
-
-quint32 PointGenThread::getMessageSizeInPixels(quint32 messageSizeInBits, quint8 numOfSelColors)
-{
-    if (!numOfSelColors) return 0;
-    quint32 tmp = messageSizeInBits / numOfSelColors;
-    if (messageSizeInBits % numOfSelColors != 0) tmp++;
-    return tmp;
-}
-
-void PointGenThread::encodeSettings(QList<QRgb *> & pointsList)
-{
-    //Encode rgb info in first generated pixel.
-    QRgb * Pixel = pointsList[0];
-    quint8 red = qRed(*Pixel);
-    quint8 green = qGreen(*Pixel);
-    quint8 blue = qBlue(*Pixel);
-
-    red = (red & 0xFE) | mColors[0];
-    green = (green & 0xFE) | mColors[1];
-    blue = (blue & 0xFE) | mColors[2];
-
-    (*Pixel) = qRgba(red, green, blue, qAlpha(*Pixel));
-    pointsList.pop_front();
-
-    //Encode other info in second pixel.
-    Pixel = pointsList[0];
-    red = qRed(*Pixel);
-    green = qGreen(*Pixel);
-    blue = qBlue(*Pixel);
-
-    red = (red & 0xFE) | mIsLookAhead;
-    green = (green & 0xFE) | mIsCompress;
-    blue = (blue & 0xFE) | mIsEncrypt;
-
-    (*Pixel) = qRgba(red, green, blue, qAlpha(*Pixel));
-    pointsList.pop_front();
+    stats[bits].total++;
 }
 
 void PointGenThread::setSeed(QImage & image, quint16 key)
@@ -277,173 +335,234 @@ void PointGenThread::fillPixelVector(QVector<QRgb *> & pixVect, QImage & image)
     }
 }
 
+void PointGenThread::encodeToPixel(QRgb * pixel, quint8 toHowManyBits, colorsObj colors, QVector<bool> & vector) {
+    quint8 updatedColors[3];
+    updatedColors[0] = qRed(*pixel);
+    updatedColors[1] = qGreen(*pixel);
+    updatedColors[2] = qBlue(*pixel);
+
+    for (int j = 0; j < 3; j++) {
+
+        if (!colors.rgb[j]) continue;
+
+        updatedColors[j] &= (0xFF << toHowManyBits);
+
+        for (int k = 0; k < toHowManyBits; k++) {
+            if (vector.isEmpty()) break;
+            updatedColors[j] |= (vector.front() << k);
+            vector.pop_front();
+        }
+    }
+
+    *pixel = qRgba(updatedColors[0], updatedColors[1], updatedColors[2], qAlpha(*pixel));
+}
+
+qint32 PointGenThread::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, QVector<bool> & vector) {
+
+    qint32 numPixels = Utils::pixelsNeeded(vector.size(), colors.numOfselected, toHowManyBits);
+
+    for (qint32 i = 0; i < numPixels; i++) {
+        QRgb * pixel = nextPixel(start, pixVect);
+        if (!pixel) return 0;
+        encodeToPixel(pixel, toHowManyBits, colors, vector);
+    }
+
+    return numPixels;
+}
+
+qint32 PointGenThread::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, quint8 numPars, ...) {
+    if (numPars % 2) {
+        qDebug() << "Usage:";
+        qDebug() << " encodeSettingsLA(start, pixVect, 4, 24, msgSizeInBytes, 1, isLookAhead)";
+        qDebug() << " encodeSettingsLA(start, pixVect, 2, 32, someInt32Var)";
+        return 0;
+    }
+    numPars = numPars / 2;
+
+    va_list arguments;
+    va_start(arguments, numPars);
+
+    QVector<bool> vector;
+    for (int i = 0; i < numPars; i++) {
+        quint8 bits = va_arg(arguments, int);
+        quint32 val = va_arg(arguments, int);
+        numToBits(val, bits, vector);
+    }
+    va_end(arguments);
+
+    return encodeToPixel(start, pixVect, toHowManyBits, colors, vector);
+}
+
+qint32 PointGenThread::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, quint8 numPars, ...) {
+    if (numPars % 2) {
+        qDebug() << "Usage:";
+        qDebug() << " decodeSettingsLA(start, pixVect, 4, 24, &msgSizeInBytes, 1, &isLookAhead)";
+        qDebug() << " decodeSettingsLA(start, pixVect, 2, 32, &someInt32Var)";
+        return 0;
+    }
+    numPars = numPars / 2;
+
+    quint8 bits[numPars];
+    qint32 * vals[numPars];
+
+    quint32 bitsSum = 0;
+
+    va_list arguments;
+    va_start(arguments, numPars);
+    for (int i = 0; i < numPars; i++) {
+        bits[i] = va_arg(arguments, int);
+        vals[i] = va_arg(arguments, int*);
+        bitsSum += bits[i];
+    }
+    va_end(arguments);
+
+    QVector<bool> vector;
+    qint32 numPixels = decodeFromPixel(start, pixVect, toHowManyBits, colors, bitsSum, vector);
+
+    for (int i = 0; i < numPars; i++) {
+        *vals[i] = bitsToNum(bits[i], vector);
+    }
+
+    return numPixels;
+}
+
+qint32 PointGenThread::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, qint32 bitsSum, QVector<bool> & vector) {
+
+    qint32 numPixels = Utils::pixelsNeeded(bitsSum, colors.numOfselected, toHowManyBits);
+
+    for (qint32 i = 0; i < numPixels; i++) {
+        QRgb * pixel = nextPixel(start, pixVect);
+        if (!pixel) return 0;
+
+        quint8 updatedColors[3];
+        updatedColors[0] = qRed(*pixel);
+        updatedColors[1] = qGreen(*pixel);
+        updatedColors[2] = qBlue(*pixel);
+
+        for (int j = 0; j < 3; j++) {
+
+            if (!colors.rgb[j]) continue;
+
+            for (int k = 0; k < toHowManyBits; k++) {
+                if (vector.size() >= bitsSum) break;
+                vector.push_back((updatedColors[j] >> k) & 0x01);
+            }
+        }
+    }
+
+    return numPixels;
+}
+
 bool PointGenThread::Encode(QImage & image, QByteArray & msgBytes, quint16 key)
 {
-
     /*QImage simg("/home/evilbateye/Pictures/1318099542371.png");
     QByteArray msgBytes;
     QBuffer buffer(&msgBytes);
     buffer.open(QIODevice::WriteOnly);
     qDebug()<<simg.save(&buffer, "PNG");*/
 
-    if (!getNumOfSelectedColors(mColors)) {
+    if (!mColors.numOfselected) {
         qDebug() << "[Encode] No colors selected. Nowhere to encode.";
         return false;
     }
 
     image = image.convertToFormat(QImage::Format_ARGB32);
 
-    quint32 msgSizeInBytes = msgBytes.size();
-
-    QVector<bool> msgBoolVect;
-
-    numToBits(msgSizeInBytes, NUM_OF_SIZE_BITS, msgBoolVect);
-
-    for (int i = 0; i < msgBytes.size(); i++) {
-        numToBits(msgBytes[i], 8, msgBoolVect);
-    }
-
-    int msgSizeInPix = PointGenThread::getMessageSizeInPixels(msgBoolVect.size(), getNumOfSelectedColors(mColors));
-    if (msgSizeInPix + NUM_OF_SETTINGS_PIXELS > (image.height() * image.width() - SUFFLEEOFFSET)) {
-        qDebug() << "[Encode] Not enough pixels to encode secret message.";
-        return false;
-    }
-
     setSeed(image, key);
 
     QVector<QRgb *> pixVect(image.height() * image.width());
     fillPixelVector(pixVect, image);
+    qint32 start = pixVect.size() - 1;
 
-    QList<QRgb *> generatedPoints;
-    generatePixelPoints(NUM_OF_SETTINGS_PIXELS, generatedPoints, pixVect);
-    encodeSettings(generatedPoints);
+    if (!encodeToPixel(start, pixVect, 1, colorsObj(true, true, true), 12,
+        1, mColors.rgb[0], 1, mColors.rgb[1], 1, mColors.rgb[2],
+        1, mIsLookAhead, 1, mIsCompress, 1, mIsEncrypt)) {
+            qDebug() << "[Encode] Not enough pixels to encode SETTINGS.";
+            return false;
+    }
 
-    if (mIsLookAhead) return lookAheadEncodeAlgorithm(msgBoolVect, pixVect, NUM_OF_SETTINGS_PIXELS);
+    if (!encodeToPixel(start, pixVect, 1, mColors, 2, NUM_OF_SIZE_BITS, msgBytes.size())) {
+        qDebug() << "[Encode] Not enough pixels to encode LENGTH.";
+        return false;
+    }
 
-    generatePixelPoints(msgSizeInPix, generatedPoints, pixVect, NUM_OF_SETTINGS_PIXELS);
+    QVector<bool> secretBits;
+    for (int i = 0; i < msgBytes.size(); i++) {
+        numToBits(msgBytes[i], 8, secretBits);
+    }
 
-    int i = 0;
-    foreach (QRgb * pixel, generatedPoints) {
-
-        quint8 updatedColors[4] = {qRed(*pixel), qGreen(*pixel), qBlue(*pixel), qAlpha(*pixel)};
-
-        for (int j = 0; j < 3; j++) {
-            if (mColors[j] && i < msgBoolVect.size()) {
-                bool b = msgBoolVect[i++];
-                updatedColors[j] = (updatedColors[j] & 0xFE) | b;
-            }
+    if (mIsLookAhead) {
+        if (!encodeLookAhead(start, image, key, secretBits, pixVect)) {
+            qDebug() << "[Encode] Not enough pixels to encode SECRET MESSAGE using LOOKAHEAD.";
+            return false;
         }
 
-        *pixel = qRgba(updatedColors[0], updatedColors[1], updatedColors[2], updatedColors[3]);
+        qDebug() << "[Encode] LookAhead algorithm results:";
+        qint32 sum = 0;
+        for (qint8 i = 0; i < 4; i++) {
+            qDebug() << " " << mStats[i].total << "x encoded in " << i << " bits.";
+            sum += mStats[i].total;
+        }
+        qDebug() << "[Encode] Number of meta pixels used is " << mMetaStats << ".";
+        qDebug() << "[Encode] Old message length would be " << msgBytes.size() * 8 << ".";
+        qDebug() << "[Encode] New message length is " << sum * 2 + mMetaStats * 3 * 2 << "(" << (100 * (sum * 2 + mMetaStats * 3 * 2)) / (msgBytes.size() * 8) << "%).";
+
+        return true;
+    }
+
+    if (!encodeToPixel(start, pixVect, 1, mColors, secretBits)) {
+        qDebug() << "[Encode] Not enough pixels to encode SECRET MESSAGE.";
+        return false;
     }
 
     return true;
 }
 
-void PointGenThread::decodeSettings(QList<QRgb *> & points, bool * settings)
-{
-    //Decode color setings from 1. point
-    QRgb * pixel = points[0];
-    quint8 red = qRed(*pixel);
-    quint8 green = qGreen(*pixel);
-    quint8 blue = qBlue(*pixel);
-
-    settings[0] = red & 0x01;
-    settings[1] = green & 0x01;
-    settings[2] = blue & 0x01;
-    points.pop_front();
-
-    //Decode other settings from 2. point
-    pixel = points[0];
-    red = qRed(*pixel);
-    green = qGreen(*pixel);
-    blue = qBlue(*pixel);
-
-    settings[3] = red & 0x01;
-    settings[4] = green & 0x01;
-    settings[5] = blue & 0x01;
-    points.pop_front();
-
-    mIsEncrypt = settings[5];
-}
-
-quint8 PointGenThread::getNumOfSelectedColors(bool * colors)
-{
-    quint8 tmp = 0;
-    if (colors[0]) tmp++;
-    if (colors[1]) tmp++;
-    if (colors[2]) tmp++;
-    return tmp;
-}
 
 bool PointGenThread::Decode(QImage & image, quint16 key)
 {
     image = image.convertToFormat(QImage::Format_ARGB32);
+
     QVector<QRgb *> pixVect(image.height() * image.width());
     fillPixelVector(pixVect, image);
+    qint32 start = pixVect.size() - 1;
 
     setSeed(image, key);
 
-    QList<QRgb *> generatedPoints;
-    generatePixelPoints(NUM_OF_SETTINGS_PIXELS, generatedPoints, pixVect);
+    bool r, g, b;
+    bool decodedIsLookAhead;
+    bool decodedIsCompress;
+    bool decodedIsEncrypt;
 
-    bool settings[NUM_OF_SETTINGS_BITS];
-    decodeSettings(generatedPoints, settings);
+    if (!decodeFromPixel(start, pixVect, 1, colorsObj(true, true, true), 12, 1, &r, 1, &g, 1, &b,
+        1, &decodedIsLookAhead, 1, &decodedIsCompress, 1, &decodedIsEncrypt)) {
+            qDebug() << "[Decode] Not enough pixels to decode SETTINGS.";
+            return false;
+    }
 
-    if (!getNumOfSelectedColors(settings)) {
-        qDebug() << "[Decode] Number of decoded selected colors is 0. There is nothing to decode from image pixels.";
+    mIsEncrypt = decodedIsEncrypt;
+
+    colorsObj decodedColor(r, g, b);
+    if (!decodedColor.numOfselected) {
+        qDebug() << "[Decode] Number of selected colors is 0. Nowhere to decode from.";
         return false;
     }
 
-    //FIXME
-    if (settings[3]) {;} //lookahead decode + return
-
-    int numOfPtsToDecodeMsgLen = PointGenThread::getMessageSizeInPixels(NUM_OF_SIZE_BITS, getNumOfSelectedColors(settings));
-    generatePixelPoints(numOfPtsToDecodeMsgLen, generatedPoints, pixVect, NUM_OF_SETTINGS_PIXELS);
+    qint32 length;
+    if (!decodeFromPixel(start, pixVect, 1, decodedColor, 2, NUM_OF_SIZE_BITS, &length)) {
+        qDebug() << "[Decode] Not enough pixels to decode LENGTH.";
+        return false;
+    }
 
     QVector<bool> msgBoolVect;
-    foreach (QRgb * pixel, generatedPoints) {
-
-        quint8 decodedColors[4] = {qRed(*pixel), qGreen(*pixel), qBlue(*pixel), qAlpha(*pixel)};
-
-        for (int j = 0; j < 3; j++) {
-            if (settings[j]) {
-                msgBoolVect.push_back(decodedColors[j] & 0x01);
-            }
+    if (decodedIsLookAhead) {
+        if (!decodeLookAhead(start, length * 8, msgBoolVect, pixVect)) {
+            qDebug() << "[Decode] Not enough pixels to decode SECRET MESSAGE using LOOKAHEAD.";
+            return false;
         }
-    }
-    generatedPoints.clear();
-
-    quint32 msgLenInBytes = bitsToNum(NUM_OF_SIZE_BITS, msgBoolVect);
-    msgBoolVect.clear();
-
-
-    quint32 numOfPtsToDecodeMsg = PointGenThread::getMessageSizeInPixels(msgLenInBytes * 8, getNumOfSelectedColors(settings));
-
-    if (numOfPtsToDecodeMsg + numOfPtsToDecodeMsgLen + NUM_OF_SETTINGS_PIXELS > image.height() * image.width() - SUFFLEEOFFSET) {
-        qDebug() << "[Decode] Decoded length of the secret message is too big. Cannot decode the secret message.";
+    } else if (!decodeFromPixel(start, pixVect, 1, decodedColor, length * 8, msgBoolVect)) {
+        qDebug() << "[Decode] Not enough pixels to decode SECRET MESSAGE.";
         return false;
-    }
-
-    generatePixelPoints(numOfPtsToDecodeMsg, generatedPoints, pixVect, NUM_OF_SETTINGS_PIXELS + numOfPtsToDecodeMsgLen);
-
-    foreach (QRgb * pixel, generatedPoints) {
-
-        quint8 decodedColors[4] = {qRed(*pixel), qGreen(*pixel), qBlue(*pixel), qAlpha(*pixel)};
-
-        for (int j = 0; j < 3; j++) {
-            if (settings[j]) {
-                msgBoolVect.push_back(decodedColors[j] & 0x01);
-            }
-        }
-    }
-
-    quint8 numCols = getNumOfSelectedColors(settings);
-    if ((msgLenInBytes * 8) % numCols != 0) {
-        for (quint8 i = numCols - 1; i > 0; i--) {
-            msgBoolVect.pop_back();
-            if ((msgLenInBytes * 8) % numCols == i) break;
-        }
     }
 
     QByteArray decoBytes;
@@ -460,7 +579,7 @@ bool PointGenThread::Decode(QImage & image, quint16 key)
     }
     decoBytes.append(temp);
 
-    emit sendMessage(decoBytes, settings[4], settings[5]);
+    emit sendMessage(decoBytes, decodedIsCompress, decodedIsEncrypt);
 
     //FIXME if encoded msg size != msg we extracted --> return false, use qchecksum
     return true;

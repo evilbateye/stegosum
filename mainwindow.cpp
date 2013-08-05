@@ -17,12 +17,7 @@
 #include "ui_mainwindow.h"
 #include "analysis/samplepairs.h"
 #include "analysis/rs.h"
-
-#define SUFFLEEOFFSET 2
-#define NUM_OF_SIZE_BITS 24
-#define NUM_OF_SETTINGS_BITS 6
-#define NUM_OF_SETTINGS_PIXELS ((NUM_OF_SETTINGS_BITS % 3 == 0) ? (NUM_OF_SETTINGS_BITS / 3) : ((NUM_OF_SETTINGS_BITS / 3) + 1))
-
+#include "utils.hpp"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -31,8 +26,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
     mScaleFactor(1.0),
-    mLastModified(PointGenThread::NONE),
-    mNumOfSelectedColors(3)
+    mLastModified(PointGenThread::NONE)
 {
     ui->setupUi(this);
 
@@ -510,12 +504,9 @@ void MainWindow::compressSliderChangedHandler(int change)
 
 void MainWindow::setNumMax()
 {
-    mNumOfSelectedColors = 0;
-    if (ui->red_radio->isChecked()) mNumOfSelectedColors++;
-    if (ui->green_radio->isChecked()) mNumOfSelectedColors++;
-    if (ui->blue_radio->isChecked()) mNumOfSelectedColors++;
+    mColors.set(ui->red_radio->isChecked(), ui->green_radio->isChecked(), ui->blue_radio->isChecked());
 
-    mNumWritableChars = ((mImg.width() * mImg.height() - SUFFLEEOFFSET - NUM_OF_SETTINGS_PIXELS - PointGenThread::getMessageSizeInPixels(NUM_OF_SIZE_BITS, mNumOfSelectedColors)) * mNumOfSelectedColors) / 8 ;
+    mNumWritableChars = ((mImg.width() * mImg.height() - SUFFLEEOFFSET - NUM_OF_SETTINGS_PIXELS - Utils::pixelsNeeded(NUM_OF_SIZE_BITS, mColors.numOfselected)) * mColors.numOfselected) / 8 ;
 }
 
 
@@ -738,6 +729,8 @@ void MainWindow::openImage(QString name)
     if (!mPassword.isEmpty()) ui->encryptCheckBox->setEnabled(true);
 
     ui->lookAheadRadio->setEnabled(true);
+    ui->metaCheckBox->setEnabled(true);
+
     ui->red_radio->setEnabled(true);
     ui->green_radio->setEnabled(true);
     ui->blue_radio->setEnabled(true);
@@ -790,13 +783,13 @@ void MainWindow::on_actionEncode_triggered()
         }
     }*/
 
-    mPointGenThread.setUp(mImg, mSecretBytes, qChecksum(mPassword.toStdString().c_str(), mPassword.size()), true,
+    mPointGenThread.setUp(mImg, mSecretBytes, qChecksum(mPassword.toStdString().c_str(), mPassword.size()),
+                          mColors,
+                          true,
                           (ui->compressSlider->value()) ? true : false,
                           ui->encryptCheckBox->isChecked(),
                           ui->lookAheadRadio->isChecked(),
-                          ui->red_radio->isChecked(),
-                          ui->green_radio->isChecked(),
-                          ui->blue_radio->isChecked());
+                          ui->metaCheckBox->isChecked());
     mPointGenThread.start();
 }
 
@@ -809,7 +802,7 @@ void MainWindow::on_actionDecode_triggered()
     ui->decodeButton->setEnabled(false);
 
     QByteArray dummy;
-    mPointGenThread.setUp(mImg, dummy, qChecksum(mPassword.toStdString().c_str(), mPassword.size()), false);
+    mPointGenThread.setUp(mImg, dummy, qChecksum(mPassword.toStdString().c_str(), mPassword.size()), mColors, false);
     mPointGenThread.start();
 }
 

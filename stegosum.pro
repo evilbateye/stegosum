@@ -17,7 +17,8 @@ SOURCES += main.cpp\
     clickablelabel.cpp \
     analysis/samplepairs.cpp \
     analysis/analysis.cpp \
-    analysis/rs.cpp
+    analysis/rs.cpp \
+    utils.cpp
 
 HEADERS  += mainwindow.h \
     secretmsgtextedit.h \
@@ -25,7 +26,8 @@ HEADERS  += mainwindow.h \
     clickablelabel.hpp \
     analysis/samplepairs.h \
     analysis/analysis.h \
-    analysis/rs.h
+    analysis/rs.h \
+    utils.hpp
 
 FORMS    += mainwindow.ui
 

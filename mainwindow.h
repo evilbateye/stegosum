@@ -95,7 +95,7 @@ private:
 
     QString mAnalysisOutFileName;
 
-    quint8 mNumOfSelectedColors;
+    colorsObj mColors;
 
     void updateStatusBar();
     void setNumMax();
