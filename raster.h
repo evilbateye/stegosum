@@ -1,22 +1,11 @@
-#ifndef POINTGENTHREAD_H
-#define POINTGENTHREAD_H
+#ifndef RASTER_H
+#define RASTER_H
 
-#include <QThread>
-#include <QWidget>
-#include <QFileDialog>
-#include <QDebug>
-#include <QProgressBar>
-#include <QVector>
-#include <QBuffer>
+#include "stegosum.h"
 
-#include "utils.hpp"
-
-class PointGenThread : public QThread
+class Raster : public Stegosum
 {
-    Q_OBJECT
-public:
-    enum Color {RED, GREEN, BLUE, ALL, NONE};
-    enum Bits {BITS_ENCODED_0, BITS_ENCODED_1, BITS_ENCODED_2, BITS_ENCODED_3};
+private:
     struct statsObj {
         qint32 bitsR;
         qint32 bitsG;
@@ -52,41 +41,15 @@ public:
         }
         quint16 getCountsSum() { return counts[0] + counts[1] + counts[2]; }
     };
-
-    explicit PointGenThread(QWidget *parent = 0);
-    void run();
-    bool Encode(QImage & image, QByteArray & secretMsg, quint16 key);
-    bool Decode(QImage & image, quint16 key = 0);
-    void setUp(const QImage & img, QByteArray & msg, quint16 key,
-               colorsObj & color,
-               bool encode = true,
-               bool isCompress = false,
-               bool isEncrypt = false,
-               bool isLookAhead = false,
-               bool isMeta = false);
-    const QImage & getImg();
-    inline bool isEncode() { return mEncode; }
-
-signals:
-    void succes(bool succ);
-    void updateProgress(int value);
-    void setMaximum(int value);
-    void sendMessage(QByteArray message, bool compressed, bool encrypted);
-
-public slots:
-
+public:
+    Raster();
+    bool Encode();
+    bool Decode();
+    void save(QString &name);
 private:
-    QImage mImg;
-    QByteArray mMsg;
-    quint16 mKey;
-    bool mEncode;
-    bool mIsCompress;
-    bool mIsEncrypt;
-    bool mIsLookAhead;
-    bool mIsMeta;
-    colorsObj mColors;
     statsObj mStats[4];
     qint32 mMetaStats;
+
     void numToBits(quint32 msgSize, quint32 shift, QVector<bool> & msgBoolVect);
     void setSeed(QImage & image, quint16 key);
     void fillPixelVector(QVector<QRgb *> & pixVect, QImage & image);
@@ -99,11 +62,11 @@ private:
     qint32 decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect);
     void getPermutation(quint8 code, quint8 * permutation, quint8 selector);
     void moveSequence(QImage & image, quint16 key, qint32 move);
-    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, quint8 numPars, ...);
-    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, QVector<bool> & vector);
-    void encodeToPixel(QRgb * pixel, quint8 toHowManyBits, colorsObj colors, QVector<bool> & vector);
-    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, quint8 numPars, ...);
-    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, colorsObj colors, qint32 bitsSum, QVector<bool> & vector);
+    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...);
+    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector);
+    void encodeToPixel(QRgb * pixel, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector);
+    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...);
+    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, qint32 bitsSum, QVector<bool> & vector);
 };
 
-#endif // POINTGENTHREAD_H
+#endif // RASTER_H

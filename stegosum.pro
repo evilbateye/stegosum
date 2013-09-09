@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui xml svg
 
 TARGET = stegosum
 TEMPLATE = app
@@ -13,21 +13,25 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp \
     secretmsgtextedit.cpp \
-    pointgenthread.cpp \
     clickablelabel.cpp \
     analysis/samplepairs.cpp \
     analysis/analysis.cpp \
     analysis/rs.cpp \
-    utils.cpp
+    utils.cpp \
+    stegosum.cpp \
+    raster.cpp \
+    vector.cpp
 
 HEADERS  += mainwindow.h \
     secretmsgtextedit.h \
-    pointgenthread.h \
     clickablelabel.hpp \
     analysis/samplepairs.h \
     analysis/analysis.h \
     analysis/rs.h \
-    utils.hpp
+    utils.hpp \
+    stegosum.h \
+    raster.h \
+    vector.h
 
 FORMS    += mainwindow.ui
 

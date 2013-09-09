@@ -9,7 +9,7 @@
 #include <QCryptographicHash>
 #include <QMessageBox>
 #include <QProgressBar>
-#include "pointgenthread.h"
+#include "stegosum.h"
 #include "clickablelabel.hpp"
 #include <QtCrypto/QtCrypto>
 #include <QBuffer>
@@ -17,6 +17,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QBitmap>
+#include "utils.hpp"
 
 namespace Ui {
     class MainWindow;
@@ -28,7 +29,8 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = 0);
-
+    QByteArray encrypt(QByteArray msg);
+    QByteArray decrypt(QByteArray msg);
     ~MainWindow();
 
 private slots:
@@ -54,11 +56,11 @@ private slots:
     void slotZoomIn();
     void slotZoomOut();
     void slotNormalSize();
-    void slotOnlyLSBRed();
-    void slotOnlyLSBGreen();
-    void slotOnlyLSBBlue();
-    void slotOnlyLSBAll();
-    void slotOnlyLSBNormal();
+    void slotOnlyLSBRed(bool checked);
+    void slotOnlyLSBGreen(bool checked);
+    void slotOnlyLSBBlue(bool checked);
+    void slotOnlyLSBAll(bool checked);
+    void slotOnlyLSBNormal(bool checked);
 
     void slotChangeStegoImgVisib(bool);
 
@@ -74,13 +76,19 @@ private slots:
 
     void on_lookAheadRadio_clicked(bool checked);
 
+    void slotWriteToConsole(QString string);
+
+    void on_FPPosSlider_sliderMoved(int position);
+
+    void on_checkBoxMaxFPPosition_toggled(bool checked);
+
 private:
     Ui::MainWindow *ui;
     QString mPassword;
     QString mFileName;
     QString mDataFileName;
     QImage mImg;
-    PointGenThread mPointGenThread;
+    Stegosum * mStegosum;
     QProgressBar * mPgBar;
     QByteArray mSecretBytes;
     QByteArray mUnchangedSecretBytes;
@@ -91,24 +99,33 @@ private:
     float mScaleFactor;
     QImage mModifiedImg;
     QImage mModifiedStego;
-    PointGenThread::Color mLastModified;
+    Utils::Color mLastModified;
 
     QString mAnalysisOutFileName;
 
-    colorsObj mColors;
+    Utils::colorsObj mColors;
+
+    QMenu * mMenuImage;
+    QMenu * mMenuView;
+
+    QAction * actionZoom_In_25;
+    QAction * actionZoom_Out_25;
+    QAction * action_Normal_Size;
+
+    QList<QAction *> mActions;
 
     void updateStatusBar();
     void setNumMax();
-    QByteArray encrypt(QByteArray msg);
-    QByteArray decrypt(QByteArray msg);
     void openImage(QString name);
 
     void scaleImage(float factor);
 
-    bool convertToLSB(QImage & image, PointGenThread::Color color, ClickableLabel * label = 0);
-    bool resetImages(PointGenThread::Color color);
+    bool convertToLSB(QImage & image, Utils::Color color, ClickableLabel * label = 0);
+    bool resetImages(Utils::Color color);
     void adjustMyScrollBars();
     void adjustMySize(QImage & image, ClickableLabel *label);
+
+    friend class Stegosum;
 };
 
 #endif // MAINWINDOW_H

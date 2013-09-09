@@ -18,15 +18,22 @@
 #include "analysis/samplepairs.h"
 #include "analysis/rs.h"
 #include "utils.hpp"
+#include "raster.h"
+#include "vector.h"
+
+#include <QImageReader>
+#include <QImageWriter>
+#include <QtSvg>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
+    mStegosum(0),
     mNumWritableChars(0),
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
     mScaleFactor(1.0),
-    mLastModified(PointGenThread::NONE)
+    mLastModified(Utils::COLOR_NONE)
 {
     ui->setupUi(this);
 
@@ -37,11 +44,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->secretMsgView, SIGNAL(textChanged()), this, SLOT(secretMsgTextChangedHandler()));
     connect(ui->compressSlider, SIGNAL(valueChanged(int)), this, SLOT(compressSliderChangedHandler(int)));
 
-    connect(&mPointGenThread, SIGNAL(succes(bool)), this, SLOT(threadEncodeHandler(bool)));
-    connect(&mPointGenThread, SIGNAL(setMaximum(int)), mPgBar, SLOT(setMaximum(int)));
-    connect(&mPointGenThread, SIGNAL(sendMessage(QByteArray,bool,bool)), this, SLOT(receiveSecretMsg(QByteArray,bool,bool)));
-    connect(&mPointGenThread, SIGNAL(updateProgress(int)), this, SLOT(setProgress(int)));
-
     ui->scrollArea->setWidgetResizable(true);
     ui->ImageView->setHSlider(ui->scrollArea->horizontalScrollBar());
     ui->ImageView->setVSlider(ui->scrollArea->verticalScrollBar());
@@ -49,15 +51,35 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ImageView, SIGNAL(scrolled(int)), this, SLOT(slotZoom(int)));
     connect(ui->ImageView, SIGNAL(mousePressedAndMoved(QPoint)), this, SLOT(slotImgMoveTool(QPoint)));
     //-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//
-    connect(ui->actionZoom_In_25, SIGNAL(triggered()), this, SLOT(slotZoomIn()));
-    connect(ui->actionZoom_Out_25, SIGNAL(triggered()), this, SLOT(slotZoomOut()));
-    connect(ui->action_Normal_Size, SIGNAL(triggered()), this, SLOT(slotNormalSize()));
-    connect(ui->action_New, SIGNAL(triggered()), this, SLOT(on_actionOpen_triggered()));
-    connect(ui->actionOnly_LSB_Red, SIGNAL(triggered()), this, SLOT(slotOnlyLSBRed()));
-    connect(ui->actionOnly_LSB_Green, SIGNAL(triggered()), this, SLOT(slotOnlyLSBGreen()));
-    connect(ui->actionOnly_LSB_Blue, SIGNAL(triggered()), this, SLOT(slotOnlyLSBBlue()));
-    connect(ui->actionOnly_LSB_All, SIGNAL(triggered()), this, SLOT(slotOnlyLSBAll()));
-    connect(ui->actionNormal_View, SIGNAL(triggered()), this, SLOT(slotOnlyLSBNormal()));
+
+    QAction * action;
+
+    mMenuImage = ui->menuBar->addMenu("&Image");
+
+    action = mMenuImage->addAction("&New");
+    connect(action, SIGNAL(triggered()), this, SLOT(on_actionOpen_triggered()));
+
+    action = mMenuImage->addAction("Zoom &In (25%)");
+    action->setEnabled(false);
+    connect(action, SIGNAL(triggered()), this, SLOT(slotZoomIn()));
+    actionZoom_In_25 = action;
+
+    action = mMenuImage->addAction("Zoom &Out (25%)");
+    action->setEnabled(false);
+    connect(action, SIGNAL(triggered()), this, SLOT(slotZoomOut()));
+    actionZoom_Out_25 = action;
+
+    action = mMenuImage->addAction("&Normal size");
+    action->setEnabled(false);
+    connect(action, SIGNAL(triggered()), this, SLOT(slotNormalSize()));
+    action_Normal_Size = action;
+
+    mMenuView = ui->menuBar->addMenu("&View");
+
+    action = mMenuView->addAction("&Stego Image");
+    action->setCheckable(true);
+    connect(action, SIGNAL(toggled(bool)), this, SLOT(slotChangeStegoImgVisib(bool)));
+
 
     ui->scrollArea_2->hide();
     ui->scrollArea_2->setWidgetResizable(true);
@@ -66,8 +88,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ImageStegoView, SIGNAL(scrolled(int)), this, SLOT(slotZoom(int)));
     connect(ui->ImageStegoView, SIGNAL(mousePressedAndMoved(QPoint)), this, SLOT(slotImgMoveTool(QPoint)));
     //-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//
-    connect(ui->action_Stego_Image, SIGNAL(toggled(bool)), this, SLOT(slotChangeStegoImgVisib(bool)));
-
 
 
 
@@ -96,13 +116,17 @@ MainWindow::MainWindow(QWidget *parent) :
 
 //    openImage("/home/evilbateye/Pictures/Yoh_Asakura_by_ghettorob21.png");
 //    mViewStegoPixmap.convertFromImage(QImage::load("/home/evilbateye/Pictures/Yohs_secret.png"));
+
+    //FIXME1
+    //ui->stackedWidget->setCurrentIndex(2);
+    //mStegosum = new Vector();
 }
 
-bool MainWindow::convertToLSB(QImage & image, PointGenThread::Color color, ClickableLabel * label)
+bool MainWindow::convertToLSB(QImage & image, Utils::Color color, ClickableLabel * label)
 {
     if (image.isNull()) return false;
 
-    if (color == PointGenThread::NONE) return false;
+    if (color == Utils::COLOR_NONE) return false;
 
     for (int j = 0; j < image.height(); j++) {
         for (int i = 0; i < image.width(); i++) {
@@ -114,25 +138,25 @@ bool MainWindow::convertToLSB(QImage & image, PointGenThread::Color color, Click
             quint8 blue = 0x00;
 
             switch (color) {
-                case PointGenThread::RED: {
+                case Utils::COLOR_RED: {
                     red = qRed(* pixel) & 0x01;
                     if (red == 0x01) red = 0xFF;
                     break;
                 }
 
-                case PointGenThread::GREEN: {
+                case Utils::COLOR_GREEN: {
                     green = qGreen(* pixel) & 0x01;
                     if (green == 0x01) green = 0xFF;
                     break;
                 }
 
-                case PointGenThread::BLUE: {
+                case Utils::COLOR_BLUE: {
                     blue = qBlue(* pixel) & 0x01;
                     if (blue == 0x01) blue = 0xFF;
                     break;
                 }
 
-                case PointGenThread::ALL: {
+                case Utils::COLOR_ALL: {
                     red = qRed(* pixel) & 0x01;
                     if (red == 0x01) red = 0xFF;
 
@@ -144,7 +168,7 @@ bool MainWindow::convertToLSB(QImage & image, PointGenThread::Color color, Click
                     break;
                 }
 
-                case PointGenThread::NONE: break;
+                case Utils::COLOR_NONE: break;
                 default: break;
             }
 
@@ -173,60 +197,95 @@ void MainWindow::adjustMyScrollBars()
     ui->scrollArea_2->verticalScrollBar()->setValue(ui->scrollArea->verticalScrollBar()->value());
 }
 
-void MainWindow::slotOnlyLSBNormal()
+void MainWindow::slotOnlyLSBNormal(bool checked)
 {
-    resetImages(PointGenThread::NONE);
+    if (!checked) return;
+
+    resetImages(Utils::COLOR_NONE);
     adjustMySize(mModifiedImg, ui->ImageView);
     if (!mModifiedStego.isNull()) {
         adjustMySize(mModifiedStego, ui->ImageStegoView);
         adjustMyScrollBars();
     }
+
+    mActions.at(0)->setChecked(false);
+    mActions.at(1)->setChecked(false);
+    mActions.at(2)->setChecked(false);
+    mActions.at(3)->setChecked(false);
 }
 
-bool MainWindow::resetImages(PointGenThread::Color color)
+bool MainWindow::resetImages(Utils::Color color)
 {
-    if (mLastModified == PointGenThread::NONE) return true;
+    if (mLastModified == Utils::COLOR_NONE) return true;
 
     if (mLastModified != color) {
         mModifiedImg = mImg;
-        if (!mModifiedStego.isNull()) mModifiedStego = mPointGenThread.getImg();
-        mLastModified = PointGenThread::NONE;
+        if (!mModifiedStego.isNull()) mModifiedStego = mStegosum->img();
+        mLastModified = Utils::COLOR_NONE;
         return true;
     }
 
     return false;
 }
 
-void MainWindow::slotOnlyLSBAll()
+void MainWindow::slotOnlyLSBAll(bool checked)
 {
-    if (resetImages(PointGenThread::ALL)) {
-        if (convertToLSB(mModifiedImg, PointGenThread::ALL, ui->ImageView)) mLastModified = PointGenThread::ALL;
-        if (convertToLSB(mModifiedStego, PointGenThread::ALL, ui->ImageStegoView)) adjustMyScrollBars();
+    if (!checked) return;
+
+    if (resetImages(Utils::COLOR_ALL)) {
+        if (convertToLSB(mModifiedImg, Utils::COLOR_ALL, ui->ImageView)) mLastModified = Utils::COLOR_ALL;
+        if (convertToLSB(mModifiedStego, Utils::COLOR_ALL, ui->ImageStegoView)) adjustMyScrollBars();
     }
+
+    mActions.at(0)->setChecked(false);
+    mActions.at(1)->setChecked(false);
+    mActions.at(2)->setChecked(false);
+    mActions.at(4)->setChecked(false);
 }
 
-void MainWindow::slotOnlyLSBBlue()
+void MainWindow::slotOnlyLSBBlue(bool checked)
 {
-    if (resetImages(PointGenThread::BLUE)) {
-        if (convertToLSB(mModifiedImg, PointGenThread::BLUE, ui->ImageView)) mLastModified = PointGenThread::BLUE;
-        if (convertToLSB(mModifiedStego, PointGenThread::BLUE, ui->ImageStegoView)) adjustMyScrollBars();
+    if (!checked) return;
+
+    if (resetImages(Utils::COLOR_BLUE)) {
+        if (convertToLSB(mModifiedImg, Utils::COLOR_BLUE, ui->ImageView)) mLastModified = Utils::COLOR_BLUE;
+        if (convertToLSB(mModifiedStego, Utils::COLOR_BLUE, ui->ImageStegoView)) adjustMyScrollBars();
     }
+
+    mActions.at(0)->setChecked(false);
+    mActions.at(1)->setChecked(false);
+    mActions.at(3)->setChecked(false);
+    mActions.at(4)->setChecked(false);
 }
 
-void MainWindow::slotOnlyLSBGreen()
+void MainWindow::slotOnlyLSBGreen(bool checked)
 {
-    if (resetImages(PointGenThread::GREEN)) {
-        if (convertToLSB(mModifiedImg, PointGenThread::GREEN, ui->ImageView)) mLastModified = PointGenThread::GREEN;
-        if (convertToLSB(mModifiedStego, PointGenThread::GREEN, ui->ImageStegoView)) adjustMyScrollBars();
+    if (!checked) return;
+
+    if (resetImages(Utils::COLOR_GREEN)) {
+        if (convertToLSB(mModifiedImg, Utils::COLOR_GREEN, ui->ImageView)) mLastModified = Utils::COLOR_GREEN;
+        if (convertToLSB(mModifiedStego, Utils::COLOR_GREEN, ui->ImageStegoView)) adjustMyScrollBars();
     }
+
+    mActions.at(0)->setChecked(false);
+    mActions.at(2)->setChecked(false);
+    mActions.at(3)->setChecked(false);
+    mActions.at(4)->setChecked(false);
 }
 
-void MainWindow::slotOnlyLSBRed()
+void MainWindow::slotOnlyLSBRed(bool checked)
 {
-    if (resetImages(PointGenThread::RED)){
-        if (convertToLSB(mModifiedImg, PointGenThread::RED, ui->ImageView)) mLastModified = PointGenThread::RED;
-        if (convertToLSB(mModifiedStego, PointGenThread::RED, ui->ImageStegoView)) adjustMyScrollBars();
+    if (!checked) return;
+
+    if (resetImages(Utils::COLOR_RED)){
+        if (convertToLSB(mModifiedImg, Utils::COLOR_RED, ui->ImageView)) mLastModified = Utils::COLOR_RED;
+        if (convertToLSB(mModifiedStego, Utils::COLOR_RED, ui->ImageStegoView)) adjustMyScrollBars();
     }
+
+    mActions.at(1)->setChecked(false);
+    mActions.at(2)->setChecked(false);
+    mActions.at(3)->setChecked(false);
+    mActions.at(4)->setChecked(false);
 }
 
 void MainWindow::slotImgMoveTool(QPoint p)
@@ -399,8 +458,8 @@ void MainWindow::slotZoom(int scrollDelta)
         scaleImage(0.8);
     }
 
-    ui->actionZoom_In_25->setEnabled(mScaleFactor < 3.0);
-    ui->actionZoom_Out_25->setEnabled(mScaleFactor > 0.333);
+    actionZoom_In_25->setEnabled(mScaleFactor < 3.0);
+    actionZoom_Out_25->setEnabled(mScaleFactor > 0.333);
 }
 
 void MainWindow::scaleImage(float factor)
@@ -432,6 +491,7 @@ void MainWindow::scaleImage(float factor)
 MainWindow::~MainWindow()
 {
     delete ui;
+    if (mStegosum) delete mStegosum;
 }
 
 void MainWindow::setProgress(int val)
@@ -464,12 +524,13 @@ QByteArray MainWindow::decrypt(QByteArray msg)
 {
     QCA::SymmetricKey key = QCA::SymmetricKey(mPassword.toAscii());
 
+    if (mPassword.isEmpty()) return QByteArray();
+
     QCA::InitializationVector iv(msg.left(16));
 
     mCipher.setup(QCA::Decode, key, iv);
 
     return mCipher.process(msg.mid(16)).toByteArray();
-
 }
 
 void MainWindow::compressSliderChangedHandler(int change)
@@ -615,65 +676,31 @@ void MainWindow::secretMsgTextEditPressHandler()
     on_actionEncode_triggered();
 }
 
-void MainWindow::threadEncodeHandler(bool succ)
+void MainWindow::receiveSecretMsg(QByteArray msgBytes, bool compressed, bool encrypted)
 {
-    if (!succ) {
-
-        if (mPointGenThread.isEncode()) statusBar()->showMessage(tr("Secret message is too big."), 2000);
-        else statusBar()->showMessage(tr("Error while decoding image."), 2000);
-
-    } else if (mPointGenThread.isEncode()) {
-        QString saveFileName = QFileDialog::getSaveFileName(this, tr("Save Image"), mFileName, tr("Image Files (*.png *.bmp)"));
-
-        if (!saveFileName.isEmpty()) {
-            mPointGenThread.getImg().save(saveFileName);
-
-            mModifiedStego = mPointGenThread.getImg();
-
-            if (!convertToLSB(mModifiedStego, mLastModified, ui->ImageStegoView)) {
-                adjustMySize(mModifiedStego, ui->ImageStegoView);
-            }
-
-            ui->scrollArea_2->adjustSize();
-            ui->scrollArea_2->horizontalScrollBar()->setMaximum(ui->scrollArea->horizontalScrollBar()->maximum());
-
-            adjustMyScrollBars();
-
+    if (encrypted) {
+        msgBytes = decrypt(msgBytes);
+        if (msgBytes.isEmpty()) {
+            statusBar()->showMessage(tr("Error while decoding."), 2000);
+            slotWriteToConsole("[MainWindow] Image probably has encrypted secret message in it. Wrong password.\n");
+            return;
         }
     }
 
-    ui->encodeButton->setEnabled(true);
-    ui->decodeButton->setEnabled(true);
-    mPgBar->reset();
-    mPgBar->setVisible(false);
-}
-
-void MainWindow::receiveSecretMsg(QByteArray msgBytes, bool compressed, bool encrypted)
-{
-    if (encrypted)
-    {
-        msgBytes = decrypt(msgBytes);
-    }
-
-    if (compressed)
-    {
+    if (compressed) {
         msgBytes = qUncompress(msgBytes);
     }
 
-    if (ui->radioButtonText->isChecked())
-    {
+    if (ui->radioButtonText->isChecked()) {
         ui->secretMsgView->setPlainText(QString(msgBytes));
-    }
-    else
-    {
+    } else {
         QString saveDataFileName = QFileDialog::getSaveFileName(this, tr("Save Image"), mFileName);
 
         if (!saveDataFileName.isEmpty()) {
 
             QFile dataFile(saveDataFileName);
 
-            if (!dataFile.open(QIODevice::WriteOnly))
-            {
+            if (!dataFile.open(QIODevice::WriteOnly)) {
                 ui->statusBar->showMessage("Cannot save data file.", 2000);
                 return;
             }
@@ -687,13 +714,13 @@ void MainWindow::receiveSecretMsg(QByteArray msgBytes, bool compressed, bool enc
 
 void MainWindow::on_actionOpen_triggered()
 {    
-    QString tmpFileName = QFileDialog::getOpenFileName(this, tr("Open Image"), mFileName, tr("Image Files (*.png *.bmp)"));
+    QString tmpFileName = QFileDialog::getOpenFileName(this, tr("Open Image"), mFileName, tr("Image Files (*.png *.bmp *.svg)"));
 
     if (!tmpFileName.isEmpty()) {
 
         openImage(tmpFileName);
         mScaleFactor = 1.0f;
-        mLastModified = PointGenThread::NONE;
+        mLastModified = Utils::COLOR_NONE;
     }
 }
 
@@ -704,6 +731,63 @@ void MainWindow::openImage(QString name)
     mFileName = name;
 
     mImg.load(mFileName);
+
+    if (mStegosum) delete mStegosum;
+
+    QAction * action;
+    QByteArray format = QImageReader(mFileName).format();
+    if (format == "bmp" || format == "png") {
+        ui->stackedWidget->setCurrentIndex(1);
+        mStegosum = new Raster();
+
+        foreach (QAction * a, mActions) {
+            mMenuView->removeAction(a);
+        }
+        mActions.clear();
+
+        action = mMenuView->addAction("Only LSB &Red");
+        action->setCheckable(true);
+        connect(action, SIGNAL(toggled(bool)), this, SLOT(slotOnlyLSBRed(bool)));
+        mActions.append(action);
+
+        action = mMenuView->addAction("Only LSB &Green");
+        action->setCheckable(true);
+        connect(action, SIGNAL(toggled(bool)), this, SLOT(slotOnlyLSBGreen(bool)));
+        mActions.append(action);
+
+        action = mMenuView->addAction("Only LSB &Blue");
+        action->setCheckable(true);
+        connect(action, SIGNAL(toggled(bool)), this, SLOT(slotOnlyLSBBlue(bool)));
+        mActions.append(action);
+
+        action = mMenuView->addAction("Only LSB &All");
+        action->setCheckable(true);
+        connect(action, SIGNAL(toggled(bool)), this, SLOT(slotOnlyLSBAll(bool)));
+        mActions.append(action);
+
+        action = mMenuView->addAction("LSB &Normal View");
+        action->setCheckable(true);
+        action->setChecked(true);
+        connect(action, SIGNAL(toggled(bool)), this, SLOT(slotOnlyLSBNormal(bool)));
+        mActions.append(action);
+
+    } else if (format == "svg") {
+        ui->stackedWidget->setCurrentIndex(2);
+        mStegosum = new Vector();
+
+        foreach (QAction * a, mActions) {
+            mMenuView->removeAction(a);
+        }
+        mActions.clear();
+    }
+
+    mStegosum->setImageName(name);
+
+    connect(mStegosum, SIGNAL(succes(bool)), this, SLOT(threadEncodeHandler(bool)));
+    connect(mStegosum, SIGNAL(setMaximum(int)), mPgBar, SLOT(setMaximum(int)));
+    connect(mStegosum, SIGNAL(sendMessage(QByteArray,bool,bool)), this, SLOT(receiveSecretMsg(QByteArray,bool,bool)));
+    connect(mStegosum, SIGNAL(updateProgress(int)), this, SLOT(setProgress(int)));
+    connect(mStegosum, SIGNAL(writeToConsole(QString)), this, SLOT(slotWriteToConsole(QString)));
 
     mModifiedImg = mImg;
 
@@ -720,11 +804,11 @@ void MainWindow::openImage(QString name)
 
     ui->compressSlider->setEnabled(true);
 
-    ui->actionZoom_In_25->setEnabled(true);
+    actionZoom_In_25->setEnabled(true);
 
-    ui->actionZoom_Out_25->setEnabled(true);
+    actionZoom_Out_25->setEnabled(true);
 
-    ui->action_Normal_Size->setEnabled(true);
+    action_Normal_Size->setEnabled(true);
 
     if (!mPassword.isEmpty()) ui->encryptCheckBox->setEnabled(true);
 
@@ -735,12 +819,9 @@ void MainWindow::openImage(QString name)
     ui->green_radio->setEnabled(true);
     ui->blue_radio->setEnabled(true);
 
-    if (ui->radioButtonText->isChecked())
-    {
+    if (ui->radioButtonText->isChecked()) {
         if (!ui->secretMsgView->toPlainText().isEmpty()) ui->encodeButton->setEnabled(true);
-    }
-    else
-    {
+    } else {
         if (!mDataFileName.isEmpty()) ui->encodeButton->setEnabled(true);
     }
 
@@ -758,6 +839,38 @@ void MainWindow::on_lineEdit_textChanged(const QString &arg1)
     }
 }
 
+void MainWindow::threadEncodeHandler(bool succ)
+{
+    if (!succ) {
+
+        if (mStegosum->isEncode()) statusBar()->showMessage(tr("Error while encoding."), 2000);
+        else statusBar()->showMessage(tr("Error while decoding."), 2000);
+
+    } else if (mStegosum->isEncode()) {
+        QString saveFileName = QFileDialog::getSaveFileName(this, tr("Save Image"), mFileName, tr("Image Files (*.png *.bmp *.svg)"));
+
+        if (!saveFileName.isEmpty()) {
+            mStegosum->save(saveFileName);
+
+            mModifiedStego = mStegosum->img();
+
+            if (!convertToLSB(mModifiedStego, mLastModified, ui->ImageStegoView)) {
+                adjustMySize(mModifiedStego, ui->ImageStegoView);
+            }
+
+            ui->scrollArea_2->adjustSize();
+            ui->scrollArea_2->horizontalScrollBar()->setMaximum(ui->scrollArea->horizontalScrollBar()->maximum());
+
+            adjustMyScrollBars();
+        }
+    }
+
+    ui->encodeButton->setEnabled(true);
+    ui->decodeButton->setEnabled(true);
+    mPgBar->reset();
+    mPgBar->setVisible(false);
+}
+
 void MainWindow::on_actionEncode_triggered()
 {
     mPgBar->setMinimum(0);
@@ -766,31 +879,13 @@ void MainWindow::on_actionEncode_triggered()
     ui->encodeButton->setEnabled(false);
     ui->decodeButton->setEnabled(false);
 
-    /*PointGenThread::Color color;
-    if (ui->encodeMaxCheckBox->isChecked()) {
-        color = PointGenThread::NONE;
-    } else {
-        if (ui->red_radio->isChecked()) {
-            color = PointGenThread::RED;
-        } else if (ui->green_radio->isChecked()) {
-            color = PointGenThread::GREEN;
-        } else if (ui->blue_radio->isChecked()){
-            color = PointGenThread::BLUE;
-        } else if (ui->all_radio->isChecked()){
-            color = PointGenThread::ALL;
-        } else {
-            color = PointGenThread::NONE;
-        }
-    }*/
-
-    mPointGenThread.setUp(mImg, mSecretBytes, qChecksum(mPassword.toStdString().c_str(), mPassword.size()),
-                          mColors,
-                          true,
-                          (ui->compressSlider->value()) ? true : false,
-                          ui->encryptCheckBox->isChecked(),
-                          ui->lookAheadRadio->isChecked(),
-                          ui->metaCheckBox->isChecked());
-    mPointGenThread.start();
+    mStegosum->setUp(this, true, (ui->compressSlider->value()) ? true : false,
+                     ui->encryptCheckBox->isChecked(),
+                     ui->lookAheadRadio->isChecked(),
+                     ui->metaCheckBox->isChecked(),
+                     ui->FPPosSlider->value(),
+                     ui->checkBoxMaxFPPosition->isChecked());
+    mStegosum->start();
 }
 
 void MainWindow::on_actionDecode_triggered()
@@ -801,9 +896,8 @@ void MainWindow::on_actionDecode_triggered()
     ui->encodeButton->setEnabled(false);
     ui->decodeButton->setEnabled(false);
 
-    QByteArray dummy;
-    mPointGenThread.setUp(mImg, dummy, qChecksum(mPassword.toStdString().c_str(), mPassword.size()), mColors, false);
-    mPointGenThread.start();
+    mStegosum->setUp(this, false);
+    mStegosum->start();
 }
 
 void MainWindow::on_radioButtonData_clicked()
@@ -860,6 +954,16 @@ void MainWindow::on_openDataButton_clicked()
     }
 }
 
+void MainWindow::slotWriteToConsole(QString string) {
+    ui->console->append(string);
+}
 
+void MainWindow::on_FPPosSlider_sliderMoved(int position) {
+    ui->FPPosLabel->setText(QString::number(Stegosum::streamToReal(QString("12345678"), position), 'g', 8));
+}
 
-
+void MainWindow::on_checkBoxMaxFPPosition_toggled(bool checked)
+{
+    ui->FPPosSlider->setEnabled(!checked);
+    ui->FPPosLabel->setEnabled(!checked);
+}
