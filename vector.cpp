@@ -18,7 +18,7 @@ void debugMessage(QString msg) {
     std::cout << std::endl;
 }
 
-Vector::Vector() : mIsDebug(false)
+Vector::Vector() : mIsDebug(true)
 {
 }
 
@@ -128,6 +128,8 @@ bool Vector::Encode() {
 
     msgBytesAsString.append(QString(NUM_MSG_LEN_NUMS - QString::number(mMsg.size()).size(), '0') + QString::number(mMsg.size()));
 
+    if (mIsDebug) qDebug() << "mMsg.size() = " << mMsg.size();
+
     int settings = 0;
     settings = mIsCompress;
     settings = (mIsEncrypt << 1) | settings;
@@ -141,7 +143,7 @@ bool Vector::Encode() {
     }
 
     //FIXME1
-    if (mIsDebug) debugMessage(msgBytesAsString.mid(9));
+    if (mIsDebug) debugMessage(msgBytesAsString);
 
     if (mIsFPPosMax) {
 
@@ -171,6 +173,9 @@ bool Vector::Encode() {
         mFPPos = pointPos;
     }
 
+    //FIXME1
+    if (mIsDebug) qDebug() << "mFPPos = " << mFPPos;
+
     bool firstTime = true;
 
     for (qint32 i = 0; i < nl.size(); i++) {
@@ -190,12 +195,12 @@ bool Vector::Encode() {
             // Randomize floating point position info.
             QString numberSelector = QString("0123456789").repeated(2);
             int random = qrand() % 10;
-            mFPPos = numberSelector.at(random + mFPPos).digitValue();
+            int fppos = numberSelector.at(random + mFPPos).digitValue();
 
             // Encode the floating point position info
             // into X coord's last digit
             // (X coord of the first point).
-            in[1] = setDigitAt(in.at(1).split(",").first(), mFPPos) + "," + in.at(1).split(",").last();
+            in[1] = setDigitAt(in.at(1).split(",").first(), fppos) + "," + in.at(1).split(",").last();
 
             firstTime = false;
         }
@@ -390,21 +395,37 @@ bool Vector::Decode() {
 
     QDomNodeList nl = doc.elementsByTagName("path");
 
-    qsrand(mKey ^ digitStream(nl.at(0).toElement().attribute("d").split(" ").at(1).split(",").last().toDouble(), 9).toInt());
-    QString numberSelector = QString("0123456789").repeated(2);
-    int random = qrand() % 10;
-    int fppos = digitAt(nl.at(0).toElement().attribute("d").split(" ").at(1).split(",").first());
+    int fppos;
+    for (qint32 i = 0; i < nl.size(); i++) {
 
-    fppos = numberSelector.indexOf(QString::number(fppos), random) - random;
+        QStringList in = nl.at(i).toElement().attribute("d").split(" ");
+
+        if (in.contains("s", Qt::CaseInsensitive)) continue;
+        if (in.contains("c", Qt::CaseInsensitive)) continue;
+        if (in.contains("l", Qt::CaseInsensitive)) continue;
+
+        qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
+        QString numberSelector = QString("0123456789").repeated(2);
+        int random = qrand() % 10;
+
+        fppos = digitAt(in.at(1).split(",").first());
+        fppos = numberSelector.indexOf(QString::number(fppos), random) - random;
+
+        break;
+    }
+
+    //FIXME1
+    if (mIsDebug) qDebug() << "fppos = " << fppos;
 
     QString msgBytesAsString;
-
     int firstPolyL = 0;
     int firstL = 2;
     qreal prevDistance = 0.0;
 
     nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos);
     int msgLen = msgBytesAsString.left(8).toInt();
+
+    if (mIsDebug) qDebug() << "msgLen = " << msgLen;
 
     if (!msgLen) {
         emit writeToConsole("[Vector] Decoded length of the secret message is 0. Are you sure this image contains a message?\n");
@@ -495,7 +516,7 @@ bool Vector::Decode() {
     msgBytesAsString.truncate(msgLen * 3);
 
     //FIXME1
-    if (mIsDebug) debugMessage(msgBytesAsString);
+    if (mIsDebug) debugMessage(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen) + QString::number(settings) + msgBytesAsString);
 
     QByteArray msgBytes;
     int size = msgBytesAsString.size() / 3;

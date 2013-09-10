@@ -118,8 +118,8 @@ MainWindow::MainWindow(QWidget *parent) :
 //    mViewStegoPixmap.convertFromImage(QImage::load("/home/evilbateye/Pictures/Yohs_secret.png"));
 
     //FIXME1
-    //ui->stackedWidget->setCurrentIndex(2);
-    //mStegosum = new Vector();
+    ui->stackedWidget->setCurrentIndex(2);
+    mStegosum = new Vector();
 }
 
 bool MainWindow::convertToLSB(QImage & image, Utils::Color color, ClickableLabel * label)
