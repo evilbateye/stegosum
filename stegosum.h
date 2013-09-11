@@ -23,9 +23,15 @@ public:
     virtual bool Encode() = 0;
     virtual bool Decode() = 0;
     void setUp(MainWindow * mw, bool encode = true, bool isCompress = false, bool isEncrypt = false, bool isLookAhead = false, bool isMeta = false, int fppos = 8, bool isfpposmax = false);
-    QImage & img() { return mImage; }
-    void setImageName(const QString & name) { mImageName = name; }
+    //virtual QImage convertToLSB() = 0;
     virtual void save(QString & name) = 0;
+
+    virtual QPair<QImage, QImage> scale(float factor) = 0;
+    virtual void setSelected(Utils::Color color) = 0;
+    virtual QPair<QImage, QImage> get(Utils::Color color = Utils::COLOR_NONE) = 0;
+
+    bool isRaster() { return mIsRaster; }
+
     inline bool isEncode() { return mEncode; }
     static QString digitStream(qreal number, int fppos);
     static qreal streamToReal(QString digitStream, int ffpos);
@@ -43,8 +49,6 @@ protected:
     QByteArray mMsg;
     quint16 mKey;
     QString mPassword;
-    QImage mImage;
-    QString mImageName;
     Utils::colorsObj mColors;
     bool mEncode;
     bool mIsCompress;
@@ -53,6 +57,9 @@ protected:
     bool mIsMeta;
     int mFPPos;
     bool mIsFPPosMax;
+    bool mIsDebug;
+    bool mIsRaster;
+    Utils::Color mSelColor;
 };
 
 #endif // POINTGENTHREAD_H

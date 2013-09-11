@@ -16,7 +16,7 @@ SamplePairs::SamplePairs()
  * @param color
  * @return
  */
-void SamplePairs::analyseOld(QImage &image, Color color, bool overlap)
+void SamplePairs::analyseOld(const QImage &image, Color color, bool overlap)
 {
     Q_UNUSED(overlap);
 
@@ -27,8 +27,8 @@ void SamplePairs::analyseOld(QImage &image, Color color, bool overlap)
     int imgh = image.height();
     if (imgh % 2 == 1) imgh--;
 
-    QRgb * firstPixel;
-    QRgb * secondPixel;
+    const QRgb * firstPixel;
+    const QRgb * secondPixel;
     quint8 u;
     quint8 v;
     long P,X,Y,Z;
@@ -42,8 +42,8 @@ void SamplePairs::analyseOld(QImage &image, Color color, bool overlap)
     for (int starty = 0; starty < imgh; starty++) {
         for (int startx = 0; startx < imgw; startx = startx + 2) {
             //get the block of data (2 pixels)
-            firstPixel = &reinterpret_cast<QRgb *>(image.scanLine(starty))[startx];
-            secondPixel = &reinterpret_cast<QRgb *>(image.scanLine(starty))[startx + 1];
+            firstPixel = &reinterpret_cast<const QRgb *>(image.scanLine(starty))[startx];
+            secondPixel = &reinterpret_cast<const QRgb *>(image.scanLine(starty))[startx + 1];
 
             u = getColor(color, firstPixel);
             v = getColor(color, secondPixel);
@@ -68,8 +68,8 @@ void SamplePairs::analyseOld(QImage &image, Color color, bool overlap)
     for (int starty = 0; starty < imgh; starty = starty + 2) {
         for (int startx = 0; startx < imgw; startx++) {
             //get the block of data (2 pixels)
-            firstPixel = &reinterpret_cast<QRgb *>(image.scanLine(starty))[startx];
-            secondPixel = &reinterpret_cast<QRgb *>(image.scanLine(starty + 1))[startx];
+            firstPixel = &reinterpret_cast<const QRgb *>(image.scanLine(starty))[startx];
+            secondPixel = &reinterpret_cast<const QRgb *>(image.scanLine(starty + 1))[startx];
 
             u = getColor(color, firstPixel);
             v = getColor(color, secondPixel);
@@ -128,13 +128,13 @@ void SamplePairs::analyseOld(QImage &image, Color color, bool overlap)
     mMessageLength = x;
 }
 
-void SamplePairs::categorize(int m, int x1,int y1, int x2, int y2, Color color, QImage & image)
+void SamplePairs::categorize(int m, int x1,int y1, int x2, int y2, Color color, const QImage & image)
 {
-    QRgb * firstPixel;
-    QRgb * secondPixel;
+    const QRgb * firstPixel;
+    const QRgb * secondPixel;
 
-    firstPixel = &reinterpret_cast<QRgb *>(image.scanLine(y1))[x1];
-    secondPixel = &reinterpret_cast<QRgb *>(image.scanLine(y2))[x2];
+    firstPixel = &reinterpret_cast<const QRgb *>(image.scanLine(y1))[x1];
+    secondPixel = &reinterpret_cast<const QRgb *>(image.scanLine(y2))[x2];
 
     quint8 u = getColor(color, firstPixel);
     quint8 v = getColor(color, secondPixel);
@@ -151,7 +151,7 @@ void SamplePairs::categorize(int m, int x1,int y1, int x2, int y2, Color color, 
     if ((d == (2 * m + 1)) && (cd == m)) Y2m1++;
 }
 
-void SamplePairs::analyse(QImage & image, Color color, bool overlap)
+void SamplePairs::analyse(const QImage & image, Color color, bool overlap)
 {
     Q_UNUSED(overlap);
 

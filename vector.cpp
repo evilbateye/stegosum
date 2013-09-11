@@ -7,7 +7,7 @@
 #define NUM_MSG_LEN_NUMS 8
 #define ANGLE_PREC 1
 //#define FLOATING_POINT_POS 9
-//#define SHOW_POINTS_W_AND_H 1
+#define SHOW_POINTS_W_AND_H 5
 
 #include <iostream>
 void debugMessage(QString msg) {
@@ -18,8 +18,83 @@ void debugMessage(QString msg) {
     std::cout << std::endl;
 }
 
-Vector::Vector() : mIsDebug(true)
+Vector::Vector(const QString &name)
 {
+    QFile file(name);
+
+    file.open(QIODevice::ReadOnly);
+
+    mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
+
+    file.close();
+
+    QBuffer buff(&mSelXmlIn[Utils::COLOR_NONE]);
+    QImage i;
+    i.load(&buff, "svg");
+
+    mSize = i.size();
+
+    mSelColor = Utils::COLOR_NONE;
+    mIsRaster = false;
+}
+
+Vector::~Vector() {
+}
+
+void Vector::setSelected(Utils::Color color) {
+    if (color == Utils::COLOR_PREV) color = mSelColor;
+    mSelColor = color;
+
+    if (color == Utils::COLOR_NONE) return;
+
+    if (mSelXmlIn[color].isEmpty()) {
+        mSelXmlIn[color] = mSelXmlIn[Utils::COLOR_NONE];
+        iluminatePoints(mSelXmlIn[color]);
+    }
+
+    if (mSelXmlOut[color].isEmpty() && !mSelXmlOut[Utils::COLOR_NONE].isEmpty()) {
+        mSelXmlOut[color] = mSelXmlOut[Utils::COLOR_NONE];
+        iluminatePoints(mSelXmlOut[color]);
+    }
+}
+
+QPair<QImage, QImage> Vector::get(Utils::Color color) {
+    QBuffer buff;
+    QImage in, out;
+
+    buff.setBuffer(&mSelXmlIn[color]);
+    in.load(&buff, "svg");
+    buff.close();
+
+    buff.setBuffer(&mSelXmlOut[color]);
+    out.load(&buff, "svg");
+    buff.close();
+
+    return qMakePair(in, out);
+}
+
+QPair<QImage, QImage> Vector::scale(float factor) {
+    QSvgRenderer r(mSelXmlIn[mSelColor]);
+    QPainter p;
+    QImage in(mSize * factor, QImage::Format_ARGB32);
+
+    in.fill(0xffffffff);
+    p.begin(&in);
+    r.render(&p);
+    p.end();
+
+    if (!mSelXmlOut[mSelColor].isEmpty()){
+        QImage out(mSize * factor, QImage::Format_ARGB32);
+        r.load(mSelXmlOut[mSelColor]);
+        out.fill(0xffffffff);
+        p.begin(&out);
+        r.render(&p);
+        p.end();
+
+        return qMakePair(in, out);
+    }
+
+    return qMakePair(in, QImage());
 }
 
 qreal Vector::totalMessageLength(QString msg, int fpppos) {
@@ -101,25 +176,25 @@ bool Vector::Encode() {
 
     QDomDocument doc("svgFile");
 
-    QFile file(mImageName);
-
     //FIXME1
     if (mIsDebug) {
+        QFile file;
         file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing.svg");
-        mMsg = "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789";
-    }
-
-    if (!file.open(QIODevice::ReadOnly)) {
-        emit writeToConsole("[Vector] Cannot open input vector file for encoding.\n");
-        return false;
-    }
-
-    if (!doc.setContent(&file)) {
-        emit writeToConsole("[Vector] Cannot parse input vector file for encoding.\n");
+        file.open(QFile::ReadOnly);
+        mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
+        mMsg = "0123456789";
+    }
+
+    if (mSelXmlIn[Utils::COLOR_NONE].isEmpty()) {
+        emit writeToConsole("[Vector] Cannot open input vector image for encoding.\n");
         return false;
     }
-    file.close();
+
+    if (!doc.setContent(mSelXmlIn[Utils::COLOR_NONE])) {
+        emit writeToConsole("[Vector] Cannot parse input vector image for encoding.\n");
+        return false;
+    }
 
     QDomNodeList nl = doc.elementsByTagName("path");
 
@@ -355,17 +430,15 @@ bool Vector::Encode() {
         return false;
     }
 
-    mXml = doc.toByteArray();
-
-    QBuffer buff(&mXml);
-    mImage.load(&buff, "svg");
+    mSelXmlOut[Utils::COLOR_NONE] = doc.toByteArray();
+    mSelXmlOut[Utils::COLOR_ILUM].clear();
 
     //FIXME1
     if (mIsDebug){
         QFile of("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing_out.svg");
         of.open(QFile::WriteOnly);
         QTextStream ts(&of);
-        ts << mXml;
+        ts << mSelXmlOut[Utils::COLOR_NONE];
         of.close();
         Decode();
     }
@@ -378,20 +451,23 @@ bool Vector::Decode() {
     QDomDocument doc("svgFile");
 
     //FIXME1
-    QFile file(mImageName);
-    if (mIsDebug) file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing_out.svg");
+    if (mIsDebug) {
+        QFile file;
+        file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing_out.svg");
+        file.open(QFile::ReadOnly);
+        mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
+        file.close();
+    }
 
-    if (!file.open(QIODevice::ReadOnly)) {
+    if (mSelXmlIn[Utils::COLOR_NONE].isEmpty()) {
         emit writeToConsole("[Vector] Cannot open input vector file for decoding.\n");
         return false;
     }
 
-    if (!doc.setContent(&file)) {
+    if (!doc.setContent(mSelXmlIn[Utils::COLOR_NONE])) {
         emit writeToConsole("[Vector] Cannot parse input vector file for decoding.\n");
-        file.close();
         return false;
     }
-    file.close();
 
     QDomNodeList nl = doc.elementsByTagName("path");
 
@@ -541,7 +617,7 @@ void Vector::save(QString &name) {
     }
 
     QTextStream stream(&f);
-    stream << mXml;
+    stream << mSelXmlOut[Utils::COLOR_NONE];
 
     f.close();
 }
@@ -649,58 +725,58 @@ QString Vector::setEven(QString number, bool even, int & direction) {
     return number;
 }
 
-//void Vector::iluminatePoints(QByteArray & arr) {
-//    QFile f(mImageName);
-//    f.open(QIODevice::ReadOnly);
+void Vector::iluminatePoints(QByteArray & arr) {
 
-//    QDomDocument d("svgFile");
-//    d.setContent(&f);
-//    f.close();
+    QDomDocument d("svgFile");
+    d.setContent(arr);
 
-//    QDomNodeList l = d.elementsByTagName("path");
+    QDomNodeList l = d.elementsByTagName("path");
 
-//    QDomElement elem;
+    QDomElement elem;
 
-//    QDomElement gelem;
+    QDomElement gelem;
 
-//    for (int i = 0; i < l.size(); i++) {
-//        QStringList in = l.at(i).toElement().attribute("d").split(" ");
-//        if (in.contains("s", Qt::CaseInsensitive)) continue;
-//        if (in.contains("c", Qt::CaseInsensitive)) continue;
+    for (int i = 0; i < l.size(); i++) {
+        QStringList in = l.at(i).toElement().attribute("d").split(" ");
+        if (in.contains("s", Qt::CaseInsensitive)) continue;
+        if (in.contains("c", Qt::CaseInsensitive)) continue;
+        if (in.contains("l", Qt::CaseInsensitive)) continue;
 
-//        bool m = in.at(0) == "m";
-//        QPointF point(in.at(1).split(",").first().toDouble(), in.at(1).split(",").last().toDouble());
+        bool m = in.at(0) == "m";
+        QPointF point(in.at(1).split(",").first().toDouble(), in.at(1).split(",").last().toDouble());
 
-//        elem = d.createElement("rect");
-//        elem.setAttribute("style", "fill:#ff0000;stroke:#ff0000;stroke-opacity:1");
-//        elem.setAttribute("id", "rect0");
-//        elem.setAttribute("width", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-//        elem.setAttribute("height", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-//        elem.setAttribute("x", QString::number(point.x() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
-//        elem.setAttribute("y", QString::number(point.y() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
+        elem = d.createElement("rect");
+        elem.setAttribute("style", "fill:#ff0000;stroke:#B3B3B3;stroke-opacity:1;stroke-width:1");
+        elem.setAttribute("id", "rect0");
+        elem.setAttribute("width", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
+        elem.setAttribute("height", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
+        elem.setAttribute("x", QString::number(point.x() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
+        elem.setAttribute("y", QString::number(point.y() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
 
-//        gelem = l.at(i).parentNode().toElement();
-//        gelem.appendChild(elem);
+        gelem = l.at(i).parentNode().toElement();
+        gelem.appendChild(elem);
 
-//        for (int j = 2; j < in.size(); j++) {
-//            if (m) {
-//                point += QPointF(in.at(j).split(",").first().toDouble(), in.at(j).split(",").last().toDouble());
-//            }
+        for (int j = 2; j < in.size(); j++) {
+            if (m) {
+                point += QPointF(in.at(j).split(",").first().toDouble(), in.at(j).split(",").last().toDouble());
+            } else {
+                point = QPointF(in.at(j).split(",").first().toDouble(), in.at(j).split(",").last().toDouble());
+            }
 
-//            elem = d.createElement("rect");
-//            elem.setAttribute("style", "fill:#ff0000;stroke:#ff0000;stroke-opacity:1");
-//            elem.setAttribute("id", "rect0");
-//            elem.setAttribute("width", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-//            elem.setAttribute("height", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-//            elem.setAttribute("x", QString::number(point.x() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
-//            elem.setAttribute("y", QString::number(point.y() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
+            elem = d.createElement("rect");
+            elem.setAttribute("style", "fill:#ff0000;stroke:#B3B3B3;stroke-opacity:1;stroke-width:1");
+            elem.setAttribute("id", "rect0");
+            elem.setAttribute("width", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
+            elem.setAttribute("height", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
+            elem.setAttribute("x", QString::number(point.x() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
+            elem.setAttribute("y", QString::number(point.y() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
 
-//            gelem.appendChild(elem);
-//        }
-//    }
+            gelem.appendChild(elem);
+        }
+    }
 
-//    arr = d.toByteArray();
-//}
+    arr = d.toByteArray();
+}
 
 QString Vector::setDigitAt(QString number, int digit, int pos) {
     QString mantis = number.split(QRegExp("[eE]")).first();

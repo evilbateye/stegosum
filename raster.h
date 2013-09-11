@@ -42,14 +42,24 @@ private:
         quint16 getCountsSum() { return counts[0] + counts[1] + counts[2]; }
     };
 public:
-    Raster();
+    Raster(const QString & name);
     bool Encode();
     bool Decode();
     void save(QString &name);
+    QPair<QImage, QImage> scale(float factor);
+    void setSelected(Utils::Color color);
+    QPair<QImage, QImage> get(Utils::Color color) {
+        return qMakePair(mSelectionIn[color], mSelectionOut[color]);
+    }
+
 private:
     statsObj mStats[4];
     qint32 mMetaStats;
 
+    QMap<Utils::Color, QImage> mSelectionIn;
+    QMap<Utils::Color, QImage> mSelectionOut;
+
+    void convertToLSB(QImage & image, Utils::Color color);
     void numToBits(quint32 msgSize, quint32 shift, QVector<bool> & msgBoolVect);
     void setSeed(QImage & image, quint16 key);
     void fillPixelVector(QVector<QRgb *> & pixVect, QImage & image);

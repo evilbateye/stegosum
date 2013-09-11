@@ -61,6 +61,7 @@ private slots:
     void slotOnlyLSBBlue(bool checked);
     void slotOnlyLSBAll(bool checked);
     void slotOnlyLSBNormal(bool checked);
+    void slotViewPoints(bool checked);
 
     void slotChangeStegoImgVisib(bool);
 
@@ -87,7 +88,6 @@ private:
     QString mPassword;
     QString mFileName;
     QString mDataFileName;
-    QImage mImg;
     Stegosum * mStegosum;
     QProgressBar * mPgBar;
     QByteArray mSecretBytes;
@@ -97,9 +97,7 @@ private:
     QCA::Cipher mCipher;
 
     float mScaleFactor;
-    QImage mModifiedImg;
-    QImage mModifiedStego;
-    Utils::Color mLastModified;
+    QImage mImg;
 
     QString mAnalysisOutFileName;
 
@@ -114,16 +112,14 @@ private:
 
     QList<QAction *> mActions;
 
+    bool mIsDebug;
+
     void updateStatusBar();
     void setNumMax();
     void openImage(QString name);
 
     void scaleImage(float factor);
-
-    bool convertToLSB(QImage & image, Utils::Color color, ClickableLabel * label = 0);
-    bool resetImages(Utils::Color color);
     void adjustMyScrollBars();
-    void adjustMySize(QImage & image, ClickableLabel *label);
 
     friend class Stegosum;
 };

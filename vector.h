@@ -7,15 +7,21 @@
 class Vector : public Stegosum
 {
 public:
-    Vector();
+    Vector(const QString & name);
+    ~Vector();
     bool Encode();
     bool Decode();
     void save(QString &name);
+    QPair<QImage, QImage> scale(float factor);
+    void setSelected(Utils::Color color);
+    QPair<QImage, QImage> get(Utils::Color color);
 
 private:
 
-    QByteArray mXml;
-    bool mIsDebug;
+    QMap<Utils::Color, QByteArray> mSelXmlIn;
+    QMap<Utils::Color, QByteArray> mSelXmlOut;
+
+    QSize mSize;
 
     struct Number {
         bool mIsPositive;
@@ -43,6 +49,7 @@ private:
         Number & operator= (const Number & other);
     };
 
+    void iluminatePoints(QByteArray & arr);
     qreal totalMessageLength(QString msg, int fpppos);
     qreal polyLineLength(QStringList & in);
     bool nextPointSecret(QDomNodeList & nodes, QString &msg, int & polylineStart, int &lineStart, qreal & c, int fppos);

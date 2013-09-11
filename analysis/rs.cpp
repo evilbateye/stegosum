@@ -13,7 +13,7 @@ RS::RS()
 {
 }
 
-void RS::analyse(QImage & image, Color color, bool overlap) {
+void RS::analyse(const QImage &image, Color color, bool overlap) {
 
     mMessageLength = -1;
 
@@ -35,7 +35,7 @@ void RS::analyse(QImage & image, Color color, bool overlap) {
             int k = 0;
             for (int i = 0; i < mN; i++) {
                 for (int j = 0; j < mM; j++) {
-                    block[k] = *(&reinterpret_cast<QRgb *>(image.scanLine(starty + i))[startx + j]);
+                    block[k] = *(&reinterpret_cast<const QRgb *>(image.scanLine(starty + i))[startx + j]);
                     k++;
                 }
             }

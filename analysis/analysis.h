@@ -13,8 +13,8 @@ public:
     };
 
     Analysis();
-    virtual void analyse(QImage & image, Color color, bool overlap) = 0;
-    quint8 getColor(Color color, QRgb * pixel);
+    virtual void analyse(const QImage & image, Color color, bool overlap) = 0;
+    quint8 getColor(Color color, const QRgb *pixel);
     double getMessageLength() { return mMessageLength; }
 
 protected:

@@ -1,7 +1,85 @@
 #include "raster.h"
 
-Raster::Raster()
+Raster::Raster(const QString &name)
 {
+    mSelectionIn[Utils::COLOR_NONE].load(name);
+    mSelectionIn[Utils::COLOR_NONE] = mSelectionIn[Utils::COLOR_NONE].convertToFormat(QImage::Format_ARGB32);
+    mSelColor = Utils::COLOR_NONE;
+    mIsRaster = true;
+}
+
+QPair<QImage, QImage> Raster::scale(float factor) {
+    return qMakePair(mSelectionIn[mSelColor].scaled(mSelectionIn[mSelColor].size() * factor, Qt::IgnoreAspectRatio, Qt::FastTransformation),
+                 mSelectionOut[mSelColor].scaled(mSelectionOut[mSelColor].size() * factor, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+}
+
+void Raster::setSelected(Utils::Color color) {
+
+    if (color == Utils::COLOR_PREV) color = mSelColor;
+
+    mSelColor = color;
+
+    if (color == Utils::COLOR_NONE) return;
+
+    if (mSelectionIn[color].isNull()) {
+        mSelectionIn[color] = mSelectionIn[Utils::COLOR_NONE];
+        convertToLSB(mSelectionIn[color], color);
+    }
+
+    if (mSelectionOut[color].isNull() && !mSelectionOut[Utils::COLOR_NONE].isNull()) {
+        mSelectionOut[color] = mSelectionOut[Utils::COLOR_NONE];
+        convertToLSB(mSelectionOut[color], color);
+    }
+}
+
+void Raster::convertToLSB(QImage & image, Utils::Color color) {
+    for (int j = 0; j < image.height(); j++) {
+        for (int i = 0; i < image.width(); i++) {
+
+            QRgb * pixel = (&reinterpret_cast<QRgb *>(image.scanLine(j))[i]);
+
+            quint8 red = 0x00;
+            quint8 green = 0x00;
+            quint8 blue = 0x00;
+
+            switch (color) {
+                case Utils::COLOR_RED: {
+                    red = qRed(* pixel) & 0x01;
+                    if (red == 0x01) red = 0xFF;
+                    break;
+                }
+
+                case Utils::COLOR_GREEN: {
+                    green = qGreen(* pixel) & 0x01;
+                    if (green == 0x01) green = 0xFF;
+                    break;
+                }
+
+                case Utils::COLOR_BLUE: {
+                    blue = qBlue(* pixel) & 0x01;
+                    if (blue == 0x01) blue = 0xFF;
+                    break;
+                }
+
+                case Utils::COLOR_ALL: {
+                    red = qRed(* pixel) & 0x01;
+                    if (red == 0x01) red = 0xFF;
+
+                    green = qGreen(* pixel) & 0x01;
+                    if (green == 0x01) green = 0xFF;
+
+                    blue = qBlue(* pixel) & 0x01;
+                    if (blue == 0x01) blue = 0xFF;
+                    break;
+                }
+
+                case Utils::COLOR_NONE: break;
+                default: break;
+            }
+
+            (* pixel) = qRgba(red, green, blue, 0xFF);
+        }
+    }
 }
 
 void Raster::numToBits(quint32 msgSize, quint32 shift, QVector<bool> & msgBoolVect)
@@ -408,7 +486,7 @@ qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8
 }
 
 void Raster::save(QString &name) {
-    mImage.save(name);
+    mSelectionOut[Utils::COLOR_NONE].save(name);
 }
 
 bool Raster::Encode()
@@ -419,18 +497,21 @@ bool Raster::Encode()
     buffer.open(QIODevice::WriteOnly);
     qDebug()<<simg.save(&buffer, "PNG");*/
 
+    mSelectionOut[Utils::COLOR_NONE] = mSelectionIn[Utils::COLOR_NONE];
+    mSelectionOut[Utils::COLOR_RED] = QImage();
+    mSelectionOut[Utils::COLOR_GREEN] = QImage();
+    mSelectionOut[Utils::COLOR_BLUE] = QImage();
+    mSelectionOut[Utils::COLOR_ALL] = QImage();
+
     if (!mColors.numOfselected) {
         emit writeToConsole("[Raster] No colors selected. Nowhere to encode.\n");
         return false;
     }
 
-    mImage.load(mImageName);
-    mImage = mImage.convertToFormat(QImage::Format_ARGB32);
+    setSeed(mSelectionOut[Utils::COLOR_NONE], mKey);
 
-    setSeed(mImage, mKey);
-
-    QVector<QRgb *> pixVect(mImage.height() * mImage.width());
-    fillPixelVector(pixVect, mImage);
+    QVector<QRgb *> pixVect(mSelectionOut[Utils::COLOR_NONE].height() * mSelectionOut[Utils::COLOR_NONE].width());
+    fillPixelVector(pixVect, mSelectionOut[Utils::COLOR_NONE]);
     qint32 start = pixVect.size() - 1;
 
     if (!encodeToPixel(start, pixVect, 1, Utils::colorsObj(true, true, true), 12,
@@ -451,7 +532,7 @@ bool Raster::Encode()
     }
 
     if (mIsLookAhead) {
-        if (!encodeLookAhead(start, mImage, mKey, secretBits, pixVect)) {
+        if (!encodeLookAhead(start, mSelectionOut[Utils::COLOR_NONE], mKey, secretBits, pixVect)) {
             emit writeToConsole("[Raster] Not enough pixels to encode SECRET MESSAGE using LOOKAHEAD.\n");
             return false;
         }
@@ -482,14 +563,11 @@ bool Raster::Encode()
 
 bool Raster::Decode()
 {
-    mImage.load(mImageName);
-    mImage = mImage.convertToFormat(QImage::Format_ARGB32);
-
-    QVector<QRgb *> pixVect(mImage.height() * mImage.width());
-    fillPixelVector(pixVect, mImage);
+    QVector<QRgb *> pixVect(mSelectionIn[Utils::COLOR_NONE].height() * mSelectionIn[Utils::COLOR_NONE].width());
+    fillPixelVector(pixVect, mSelectionIn[Utils::COLOR_NONE]);
     qint32 start = pixVect.size() - 1;
 
-    setSeed(mImage, mKey);
+    setSeed(mSelectionIn[Utils::COLOR_NONE], mKey);
 
     bool r, g, b;
     bool decodedIsLookAhead;

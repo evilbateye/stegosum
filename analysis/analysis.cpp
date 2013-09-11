@@ -4,7 +4,7 @@ Analysis::Analysis()
 {
 }
 
-quint8 Analysis::getColor(Analysis::Color color, QRgb * pixel)
+quint8 Analysis::getColor(Analysis::Color color, const QRgb * pixel)
 {
     switch (color) {
         case Analysis::ANALYSIS_COLOR_RED: {

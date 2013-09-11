@@ -33,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
     mScaleFactor(1.0),
-    mLastModified(Utils::COLOR_NONE)
+    mIsDebug(false)
 {
     ui->setupUi(this);
 
@@ -118,76 +118,13 @@ MainWindow::MainWindow(QWidget *parent) :
 //    mViewStegoPixmap.convertFromImage(QImage::load("/home/evilbateye/Pictures/Yohs_secret.png"));
 
     //FIXME1
-    ui->stackedWidget->setCurrentIndex(2);
-    mStegosum = new Vector();
-}
-
-bool MainWindow::convertToLSB(QImage & image, Utils::Color color, ClickableLabel * label)
-{
-    if (image.isNull()) return false;
-
-    if (color == Utils::COLOR_NONE) return false;
-
-    for (int j = 0; j < image.height(); j++) {
-        for (int i = 0; i < image.width(); i++) {
-
-            QRgb * pixel = (&reinterpret_cast<QRgb *>(image.scanLine(j))[i]);
-
-            quint8 red = 0x00;
-            quint8 green = 0x00;
-            quint8 blue = 0x00;
-
-            switch (color) {
-                case Utils::COLOR_RED: {
-                    red = qRed(* pixel) & 0x01;
-                    if (red == 0x01) red = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_GREEN: {
-                    green = qGreen(* pixel) & 0x01;
-                    if (green == 0x01) green = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_BLUE: {
-                    blue = qBlue(* pixel) & 0x01;
-                    if (blue == 0x01) blue = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_ALL: {
-                    red = qRed(* pixel) & 0x01;
-                    if (red == 0x01) red = 0xFF;
-
-                    green = qGreen(* pixel) & 0x01;
-                    if (green == 0x01) green = 0xFF;
-
-                    blue = qBlue(* pixel) & 0x01;
-                    if (blue == 0x01) blue = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_NONE: break;
-                default: break;
-            }
-
-            (* pixel) = qRgba(red, green, blue, 0xFF);
-        }
+    if (mIsDebug) {
+        ui->stackedWidget->setCurrentIndex(2);
+        mStegosum = new Vector("");
+        ui->checkBoxMaxFPPosition->setChecked(true);
+        ui->encodeButton->setEnabled(true);
+        ui->decodeButton->setEnabled(true);
     }
-
-    if (!label) return true;
-
-    adjustMySize(image, label);
-
-    return true;
-}
-
-void MainWindow::adjustMySize(QImage & image, ClickableLabel * label)
-{
-    QPixmap tmp;
-    tmp.convertFromImage(image.scaled(mScaleFactor * image.size()));
-    label->setPixmap(tmp);
 }
 
 void MainWindow::adjustMyScrollBars()
@@ -201,12 +138,24 @@ void MainWindow::slotOnlyLSBNormal(bool checked)
 {
     if (!checked) return;
 
-    resetImages(Utils::COLOR_NONE);
-    adjustMySize(mModifiedImg, ui->ImageView);
-    if (!mModifiedStego.isNull()) {
-        adjustMySize(mModifiedStego, ui->ImageStegoView);
-        adjustMyScrollBars();
-    }
+//    resetImages(Utils::COLOR_NONE);
+//    adjustMySize(mModifiedImg, ui->ImageView);
+//    if (!mModifiedStego.isNull()) {
+//        adjustMySize(mModifiedStego, ui->ImageStegoView);
+//        adjustMyScrollBars();
+//    }
+
+    mStegosum->setSelected(Utils::COLOR_NONE);
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(pair.first);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 
     mActions.at(0)->setChecked(false);
     mActions.at(1)->setChecked(false);
@@ -214,28 +163,26 @@ void MainWindow::slotOnlyLSBNormal(bool checked)
     mActions.at(3)->setChecked(false);
 }
 
-bool MainWindow::resetImages(Utils::Color color)
-{
-    if (mLastModified == Utils::COLOR_NONE) return true;
-
-    if (mLastModified != color) {
-        mModifiedImg = mImg;
-        if (!mModifiedStego.isNull()) mModifiedStego = mStegosum->img();
-        mLastModified = Utils::COLOR_NONE;
-        return true;
-    }
-
-    return false;
-}
-
 void MainWindow::slotOnlyLSBAll(bool checked)
 {
     if (!checked) return;
 
-    if (resetImages(Utils::COLOR_ALL)) {
-        if (convertToLSB(mModifiedImg, Utils::COLOR_ALL, ui->ImageView)) mLastModified = Utils::COLOR_ALL;
-        if (convertToLSB(mModifiedStego, Utils::COLOR_ALL, ui->ImageStegoView)) adjustMyScrollBars();
-    }
+//    if (resetImages(Utils::COLOR_ALL)) {
+//        if (convertToLSB(mModifiedImg, Utils::COLOR_ALL, ui->ImageView)) mLastModified = Utils::COLOR_ALL;
+//        if (convertToLSB(mModifiedStego, Utils::COLOR_ALL, ui->ImageStegoView)) adjustMyScrollBars();
+//    }
+
+    mStegosum->setSelected(Utils::COLOR_ALL);
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(pair.first);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 
     mActions.at(0)->setChecked(false);
     mActions.at(1)->setChecked(false);
@@ -247,10 +194,22 @@ void MainWindow::slotOnlyLSBBlue(bool checked)
 {
     if (!checked) return;
 
-    if (resetImages(Utils::COLOR_BLUE)) {
-        if (convertToLSB(mModifiedImg, Utils::COLOR_BLUE, ui->ImageView)) mLastModified = Utils::COLOR_BLUE;
-        if (convertToLSB(mModifiedStego, Utils::COLOR_BLUE, ui->ImageStegoView)) adjustMyScrollBars();
-    }
+//    if (resetImages(Utils::COLOR_BLUE)) {
+//        if (convertToLSB(mModifiedImg, Utils::COLOR_BLUE, ui->ImageView)) mLastModified = Utils::COLOR_BLUE;
+//        if (convertToLSB(mModifiedStego, Utils::COLOR_BLUE, ui->ImageStegoView)) adjustMyScrollBars();
+//    }
+
+    mStegosum->setSelected(Utils::COLOR_BLUE);
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(pair.first);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 
     mActions.at(0)->setChecked(false);
     mActions.at(1)->setChecked(false);
@@ -262,10 +221,22 @@ void MainWindow::slotOnlyLSBGreen(bool checked)
 {
     if (!checked) return;
 
-    if (resetImages(Utils::COLOR_GREEN)) {
-        if (convertToLSB(mModifiedImg, Utils::COLOR_GREEN, ui->ImageView)) mLastModified = Utils::COLOR_GREEN;
-        if (convertToLSB(mModifiedStego, Utils::COLOR_GREEN, ui->ImageStegoView)) adjustMyScrollBars();
-    }
+//    if (resetImages(Utils::COLOR_GREEN)) {
+//        if (convertToLSB(mModifiedImg, Utils::COLOR_GREEN, ui->ImageView)) mLastModified = Utils::COLOR_GREEN;
+//        if (convertToLSB(mModifiedStego, Utils::COLOR_GREEN, ui->ImageStegoView)) adjustMyScrollBars();
+//    }
+
+    mStegosum->setSelected(Utils::COLOR_GREEN);
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(pair.first);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 
     mActions.at(0)->setChecked(false);
     mActions.at(2)->setChecked(false);
@@ -277,10 +248,21 @@ void MainWindow::slotOnlyLSBRed(bool checked)
 {
     if (!checked) return;
 
-    if (resetImages(Utils::COLOR_RED)){
-        if (convertToLSB(mModifiedImg, Utils::COLOR_RED, ui->ImageView)) mLastModified = Utils::COLOR_RED;
-        if (convertToLSB(mModifiedStego, Utils::COLOR_RED, ui->ImageStegoView)) adjustMyScrollBars();
-    }
+//    if (resetImages(Utils::COLOR_RED)){
+//        if (convertToLSB(mModifiedImg, Utils::COLOR_RED, ui->ImageView)) mLastModified = Utils::COLOR_RED;
+//        if (convertToLSB(mModifiedStego, Utils::COLOR_RED, ui->ImageStegoView)) adjustMyScrollBars();
+//    }
+    mStegosum->setSelected(Utils::COLOR_RED);
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(pair.first);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 
     mActions.at(1)->setChecked(false);
     mActions.at(2)->setChecked(false);
@@ -290,12 +272,12 @@ void MainWindow::slotOnlyLSBRed(bool checked)
 
 void MainWindow::slotImgMoveTool(QPoint p)
 {
-    if (!mFileName.isEmpty()) {
+    if (ui->ImageView->pixmap()) {
         ui->scrollArea->horizontalScrollBar()->setValue(ui->scrollArea->horizontalScrollBar()->value() + p.x());
         ui->scrollArea->verticalScrollBar()->setValue(ui->scrollArea->verticalScrollBar()->value() + p.y());
     }
 
-    if (!mModifiedStego.isNull()) {
+    if (ui->ImageStegoView->pixmap()) {
         ui->scrollArea_2->horizontalScrollBar()->setValue(ui->scrollArea_2->horizontalScrollBar()->value() + p.x());
         ui->scrollArea_2->verticalScrollBar()->setValue(ui->scrollArea_2->verticalScrollBar()->value() + p.y());
     }
@@ -303,11 +285,10 @@ void MainWindow::slotImgMoveTool(QPoint p)
 
 void MainWindow::slotChangeStegoImgVisib(bool change)
 {
-    if (change) {
+    if (change)
         ui->scrollArea_2->show();
-    } else {
+    else
         ui->scrollArea_2->hide();
-    }
 }
 
 void MainWindow::on_makeAnalysisButton_clicked()
@@ -336,15 +317,15 @@ void MainWindow::on_makeAnalysisButton_clicked()
 
         outText.append("\n------------------------------------------\nSample Pairs Analysis\n------------------------------------------\n");
 
-        sp.analyse(mImg, Analysis::ANALYSIS_COLOR_RED);
+        sp.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_RED);
         avg += sp.getMessageLength();
         outText.append("Percentage in red: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
-        sp.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN);
+        sp.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_GREEN);
         avg += sp.getMessageLength();
         outText.append("Percentage in green: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
-        sp.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE);
+        sp.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_BLUE);
         avg += sp.getMessageLength();
         outText.append("Percentage in blue: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
@@ -353,15 +334,15 @@ void MainWindow::on_makeAnalysisButton_clicked()
 
         outText.append("\n------------------------------------------\nSample Pairs Analysis Old\n------------------------------------------\n");
         avg = 0.0;
-        sp.analyseOld(mImg, Analysis::ANALYSIS_COLOR_RED);
+        sp.analyseOld(mStegosum->get().first, Analysis::ANALYSIS_COLOR_RED);
         avg += sp.getMessageLength();
         outText.append("Percentage in red: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
-        sp.analyseOld(mImg, Analysis::ANALYSIS_COLOR_GREEN);
+        sp.analyseOld(mStegosum->get().first, Analysis::ANALYSIS_COLOR_GREEN);
         avg += sp.getMessageLength();
         outText.append("Percentage in green: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
-        sp.analyseOld(mImg, Analysis::ANALYSIS_COLOR_BLUE);
+        sp.analyseOld(mStegosum->get().first, Analysis::ANALYSIS_COLOR_BLUE);
         avg += sp.getMessageLength();
         outText.append("Percentage in blue: " + QString::number(sp.getMessageLength() * 100) + "%\n");
 
@@ -390,29 +371,29 @@ void MainWindow::on_makeAnalysisButton_clicked()
 
         outText.append("\n(non-overlapping groups)\n");
 
-        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_RED, false);
+        rs.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_RED, false);
         avg += rs.getMessageLength();
         outText.append("Percentage in red: " + QString::number(rs.getMessageLength() * 100) + "%\n");
 
-        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN, false);
+        rs.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_GREEN, false);
         avg += rs.getMessageLength();
         outText.append("Percentage in green: " + QString::number(rs.getMessageLength() * 100) + "%\n");
 
-        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE, false);
+        rs.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_BLUE, false);
         avg += rs.getMessageLength();
         outText.append("Percentage in blue: " + QString::number(rs.getMessageLength() * 100) + "%\n");
 
         outText.append("\n(overlapping groups)\n");
 
-        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_RED, true);
+        rs.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_RED, true);
         avg += rs.getMessageLength();
         outText.append("Percentage in red: " + QString::number(rs.getMessageLength() * 100) + "%\n");
 
-        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_GREEN, true);
+        rs.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_GREEN, true);
         avg += rs.getMessageLength();
         outText.append("Percentage in green: " + QString::number(rs.getMessageLength() * 100) + "%\n");
 
-        rs.analyse(mImg, Analysis::ANALYSIS_COLOR_BLUE, true);
+        rs.analyse(mStegosum->get().first, Analysis::ANALYSIS_COLOR_BLUE, true);
         avg += rs.getMessageLength();
         outText.append("Percentage in blue: " + QString::number(rs.getMessageLength() * 100) + "%\n");
 
@@ -436,30 +417,33 @@ void MainWindow::slotNormalSize()
 {
     QPixmap tmp, tmps;
 
-    tmp.convertFromImage(mModifiedImg);
+    mScaleFactor = 1.0f;
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    tmp.convertFromImage(pair.first);
     ui->ImageView->setPixmap(tmp);
 
-    if (tmps.convertFromImage(mModifiedStego)) ui->ImageStegoView->setPixmap(tmps);
-
-    mScaleFactor = 1.0f;
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 }
 
 void MainWindow::slotZoomIn() {slotZoom(1);}
 void MainWindow::slotZoomOut() {slotZoom(-1);}
 void MainWindow::slotZoom(int scrollDelta)
 {
-    if (mFileName.isEmpty()) return;
+    if (!ui->ImageView->pixmap()) return;
 
     if (scrollDelta > 0) {
-        if (mScaleFactor > 3.0) return;
+        if (mScaleFactor > 7.0) return;
         scaleImage(1.25);
     } else {
-        if (mScaleFactor < 0.333) return;
+        if (mScaleFactor < 0.2) return;
         scaleImage(0.8);
     }
 
-    actionZoom_In_25->setEnabled(mScaleFactor < 3.0);
-    actionZoom_Out_25->setEnabled(mScaleFactor > 0.333);
+    actionZoom_In_25->setEnabled(mScaleFactor < 7.0);
+    actionZoom_Out_25->setEnabled(mScaleFactor > 0.2);
 }
 
 void MainWindow::scaleImage(float factor)
@@ -469,23 +453,18 @@ void MainWindow::scaleImage(float factor)
     mScaleFactor *= factor;
     ui->statusBar->showMessage(QString().sprintf("Zoom %.0f%%", mScaleFactor * 100), 2000);
 
-    QSize size = mScaleFactor * mModifiedImg.size();
+    //QSize size = mScaleFactor * mModifiedImg.size();
+    //QSize size = mScaleFactor * (mStegosum->in()->size());
 
-//    tmp.convertFromImage(mModifiedImg.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
-    tmp.convertFromImage(mModifiedImg.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    //tmp.convertFromImage(mModifiedImg.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+    tmp.convertFromImage(pair.first);
     ui->ImageView->setPixmap(tmp);
 
-//    if (tmp.convertFromImage(mModifiedStego.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)))
-    if (tmps.convertFromImage(mModifiedStego.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation)))
+    //if (tmps.convertFromImage(mModifiedStego.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation)))
+    if (tmps.convertFromImage(pair.second))
         ui->ImageStegoView->setPixmap(tmps);
-
-//    ui->scrollArea->horizontalScrollBar()->setValue(
-//                int(mScaleFactor * ui->scrollArea->horizontalScrollBar()->value()
-//                    + ((mScaleFactor - 1) * ui->scrollArea->horizontalScrollBar()->pageStep()/2)));
-
-//    ui->scrollArea->verticalScrollBar()->setValue(
-//                int(mScaleFactor * ui->scrollArea->verticalScrollBar()->value()
-//                    + ((mScaleFactor - 1) * ui->scrollArea->verticalScrollBar()->pageStep()/2)));
 }
 
 MainWindow::~MainWindow()
@@ -567,7 +546,7 @@ void MainWindow::setNumMax()
 {
     mColors.set(ui->red_radio->isChecked(), ui->green_radio->isChecked(), ui->blue_radio->isChecked());
 
-    mNumWritableChars = ((mImg.width() * mImg.height() - SUFFLEEOFFSET - NUM_OF_SETTINGS_PIXELS - Utils::pixelsNeeded(NUM_OF_SIZE_BITS, mColors.numOfselected)) * mColors.numOfselected) / 8 ;
+    mNumWritableChars = ((mStegosum->get().first.width() * mStegosum->get().first.height() - SUFFLEEOFFSET - NUM_OF_SETTINGS_PIXELS - Utils::pixelsNeeded(NUM_OF_SIZE_BITS, mColors.numOfselected)) * mColors.numOfselected) / 8 ;
 }
 
 
@@ -634,7 +613,7 @@ void MainWindow::on_encryptCheckBox_clicked()
 
 void MainWindow::secretMsgTextChangedHandler()
 {
-    if (!mImg.isNull()) ui->encodeButton->setEnabled(true);
+    if (ui->ImageView->pixmap()) ui->encodeButton->setEnabled(true);
 
     mUnchangedSecretBytes = ui->secretMsgView->toPlainText().toAscii();
     mSecretBytes = mUnchangedSecretBytes;
@@ -658,12 +637,12 @@ void MainWindow::updateStatusBar()
 {
     int size = mSecretBytes.size();
 
-    if (mImg.isNull()) {
+    if (!ui->ImageView->pixmap()) {
         ui->statusBar->showMessage(QString::number(size)  + " characters", 2000);
         return;
     }
 
-    if (ui->lookAheadRadio->isChecked()) {
+    if (ui->lookAheadRadio->isChecked() || !mStegosum->isRaster()) {
         ui->statusBar->showMessage(QString::number(size) + " / ? characters", 2000);
         return;
     }
@@ -720,7 +699,6 @@ void MainWindow::on_actionOpen_triggered()
 
         openImage(tmpFileName);
         mScaleFactor = 1.0f;
-        mLastModified = Utils::COLOR_NONE;
     }
 }
 
@@ -730,15 +708,13 @@ void MainWindow::openImage(QString name)
 
     mFileName = name;
 
-    mImg.load(mFileName);
-
     if (mStegosum) delete mStegosum;
 
     QAction * action;
     QByteArray format = QImageReader(mFileName).format();
     if (format == "bmp" || format == "png") {
         ui->stackedWidget->setCurrentIndex(1);
-        mStegosum = new Raster();
+        mStegosum = new Raster(name);
 
         foreach (QAction * a, mActions) {
             mMenuView->removeAction(a);
@@ -771,17 +747,24 @@ void MainWindow::openImage(QString name)
         connect(action, SIGNAL(toggled(bool)), this, SLOT(slotOnlyLSBNormal(bool)));
         mActions.append(action);
 
+        ui->makeAnalysisButton->setEnabled(true);
+
     } else if (format == "svg") {
         ui->stackedWidget->setCurrentIndex(2);
-        mStegosum = new Vector();
+        mStegosum = new Vector(name);
 
         foreach (QAction * a, mActions) {
             mMenuView->removeAction(a);
         }
         mActions.clear();
-    }
 
-    mStegosum->setImageName(name);
+        action = mMenuView->addAction("View &Points");
+        action->setCheckable(true);
+        connect(action, SIGNAL(toggled(bool)), this, SLOT(slotViewPoints(bool)));
+        mActions.append(action);
+
+        ui->makeAnalysisButton->setEnabled(false);
+    }
 
     connect(mStegosum, SIGNAL(succes(bool)), this, SLOT(threadEncodeHandler(bool)));
     connect(mStegosum, SIGNAL(setMaximum(int)), mPgBar, SLOT(setMaximum(int)));
@@ -789,18 +772,12 @@ void MainWindow::openImage(QString name)
     connect(mStegosum, SIGNAL(updateProgress(int)), this, SLOT(setProgress(int)));
     connect(mStegosum, SIGNAL(writeToConsole(QString)), this, SLOT(slotWriteToConsole(QString)));
 
-    mModifiedImg = mImg;
-
-    tmp.convertFromImage(mModifiedImg);
-    ui->ImageView->setPixmap(tmp);
+    ui->ImageView->setPixmap(QPixmap(name));
 
     ui->ImageStegoView->setPixmap(0);
     ui->ImageStegoView->setText("stego image");
-    mModifiedStego = QImage();
 
     ui->decodeButton->setEnabled(true);
-
-    ui->makeAnalysisButton->setEnabled(true);
 
     ui->compressSlider->setEnabled(true);
 
@@ -811,13 +788,6 @@ void MainWindow::openImage(QString name)
     action_Normal_Size->setEnabled(true);
 
     if (!mPassword.isEmpty()) ui->encryptCheckBox->setEnabled(true);
-
-    ui->lookAheadRadio->setEnabled(true);
-    ui->metaCheckBox->setEnabled(true);
-
-    ui->red_radio->setEnabled(true);
-    ui->green_radio->setEnabled(true);
-    ui->blue_radio->setEnabled(true);
 
     if (ui->radioButtonText->isChecked()) {
         if (!ui->secretMsgView->toPlainText().isEmpty()) ui->encodeButton->setEnabled(true);
@@ -831,7 +801,7 @@ void MainWindow::openImage(QString name)
 void MainWindow::on_lineEdit_textChanged(const QString &arg1)
 {
     mPassword = arg1;
-    if (!mPassword.isEmpty() && !mImg.isNull()) ui->encryptCheckBox->setEnabled(true);
+    if (!mPassword.isEmpty() && ui->ImageView->pixmap()) ui->encryptCheckBox->setEnabled(true);
     if (mPassword.isEmpty())
     {
         ui->encryptCheckBox->setEnabled(false);
@@ -852,11 +822,13 @@ void MainWindow::threadEncodeHandler(bool succ)
         if (!saveFileName.isEmpty()) {
             mStegosum->save(saveFileName);
 
-            mModifiedStego = mStegosum->img();
+            mStegosum->setSelected(Utils::COLOR_PREV);
 
-            if (!convertToLSB(mModifiedStego, mLastModified, ui->ImageStegoView)) {
-                adjustMySize(mModifiedStego, ui->ImageStegoView);
-            }
+            QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+            QPixmap tmp;
+            tmp.convertFromImage(pair.second);
+            ui->ImageStegoView->setPixmap(tmp);
 
             ui->scrollArea_2->adjustSize();
             ui->scrollArea_2->horizontalScrollBar()->setMaximum(ui->scrollArea->horizontalScrollBar()->maximum());
@@ -937,7 +909,7 @@ void MainWindow::on_openDataButton_clicked()
         mUnchangedSecretBytes = dataFile.readAll();
         mSecretBytes = mUnchangedSecretBytes;
 
-        if (!mImg.isNull())
+        if (ui->ImageView->pixmap())
         {
             ui->encodeButton->setEnabled(true);
 
@@ -966,4 +938,19 @@ void MainWindow::on_checkBoxMaxFPPosition_toggled(bool checked)
 {
     ui->FPPosSlider->setEnabled(!checked);
     ui->FPPosLabel->setEnabled(!checked);
+}
+
+void MainWindow::slotViewPoints(bool checked) {
+    if (checked) mStegosum->setSelected(Utils::COLOR_ILUM);
+    else mStegosum->setSelected(Utils::COLOR_NONE);
+
+    QPair<QImage, QImage> pair = mStegosum->scale(mScaleFactor);
+
+    QPixmap tmp, tmps;
+
+    tmp.convertFromImage(pair.first);
+    ui->ImageView->setPixmap(tmp);
+
+    if (tmps.convertFromImage(pair.second))
+        ui->ImageStegoView->setPixmap(tmps);
 }

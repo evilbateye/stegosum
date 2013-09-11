@@ -13,7 +13,7 @@
 class Utils
 {
 public:
-    enum Color {COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_ALL, COLOR_NONE};
+    enum Color {COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_ALL, COLOR_NONE, COLOR_PREV, COLOR_ILUM};
     struct colorsObj {
         bool rgb[3];
         quint8 numOfselected;

@@ -7,7 +7,7 @@ class RS : public Analysis
 {
 public:
     RS();
-    void analyse(QImage &image, Color color, bool overlap);
+    void analyse(const QImage &image, Color color, bool overlap);
     double getVariation(int *block, int blockLen, Color color, int *mask, bool negativeVariation = false);
     void flipBlock(int *block, int blockLen, int *mask);
     quint8 negateLSB(quint8 colorByte);

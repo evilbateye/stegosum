@@ -17,7 +17,7 @@ void Stegosum::run()
 void Stegosum::setUp(MainWindow * mw, bool encode, bool isCompress, bool isEncrypt, bool isLookAhead, bool isMeta, int fppos, bool isfpposmax)
 {
     mMsg = mw->mSecretBytes;
-    mImageName = mw->mFileName;
+
     mColors = mw->mColors;
     mEncode = encode;
     mPassword = mw->mPassword;
@@ -28,6 +28,8 @@ void Stegosum::setUp(MainWindow * mw, bool encode, bool isCompress, bool isEncry
     mIsMeta = isMeta;
     mFPPos = fppos;
     mIsFPPosMax = isfpposmax;
+
+    mIsDebug = mw->mIsDebug;
 }
 
 qreal Stegosum::streamToReal(QString digitStream, int ffpos) {
