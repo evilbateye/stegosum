@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>916</width>
+    <width>1030</width>
     <height>422</height>
    </rect>
   </property>
@@ -42,7 +42,7 @@
           <widget class="QWidget" name="scrollAreaWidgetContents">
            <property name="geometry">
             <rect>
-             <x>1</x>
+             <x>14</x>
              <y>31</y>
              <width>198</width>
              <height>291</height>
@@ -77,7 +77,7 @@
           <widget class="QWidget" name="scrollAreaWidgetContents_2">
            <property name="geometry">
             <rect>
-             <x>1</x>
+             <x>14</x>
              <y>31</y>
              <width>198</width>
              <height>291</height>
@@ -411,12 +411,18 @@
                      <property name="text">
                       <string>Max FP Position</string>
                      </property>
+                     <property name="checked">
+                      <bool>true</bool>
+                     </property>
                     </widget>
                    </item>
                   </layout>
                  </item>
                  <item row="1" column="0">
                   <widget class="QSlider" name="FPPosSlider">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -451,6 +457,9 @@
                  </item>
                  <item row="0" column="0">
                   <widget class="QLabel" name="FPPosLabel">
+                   <property name="enabled">
+                    <bool>false</bool>
+                   </property>
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
                      <horstretch>10</horstretch>
@@ -726,7 +735,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>916</width>
+     <width>1030</width>
      <height>25</height>
     </rect>
    </property>

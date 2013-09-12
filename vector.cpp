@@ -198,58 +198,7 @@ bool Vector::Encode() {
 
     QDomNodeList nl = doc.elementsByTagName("path");
 
-    quint8 byte;
     QString msgBytesAsString;
-
-    msgBytesAsString.append(QString(NUM_MSG_LEN_NUMS - QString::number(mMsg.size()).size(), '0') + QString::number(mMsg.size()));
-
-    if (mIsDebug) qDebug() << "mMsg.size() = " << mMsg.size();
-
-    int settings = 0;
-    settings = mIsCompress;
-    settings = (mIsEncrypt << 1) | settings;
-    msgBytesAsString.append(QString::number(settings));
-
-    for (int i = 0; i < mMsg.size(); i++) {
-        byte = mMsg[i];
-        QString sbyte = QString::number(byte);
-        QString append = QString(3 - sbyte.size(), '0') + sbyte;
-        msgBytesAsString.append(append);
-    }
-
-    //FIXME1
-    if (mIsDebug) debugMessage(msgBytesAsString);
-
-    if (mIsFPPosMax) {
-
-        // Get the total sum of all lines lengths.
-        qreal totalLength = 0;
-        for (qint32 i = 0; i < nl.size(); i++) {
-            QStringList in = nl.at(i).toElement().attribute("d").split(" ");
-            if (in.contains("s", Qt::CaseInsensitive)) continue;
-            if (in.contains("c", Qt::CaseInsensitive)) continue;
-            if (in.contains("l", Qt::CaseInsensitive)) continue;
-
-            totalLength += polyLineLength(in);
-        }
-
-        // Get the max floating point position,
-        // that still enables the message to be encoded.
-        int pointPos = 9;
-        qreal totalMsgLen = totalMessageLength(msgBytesAsString, pointPos);
-        while (totalMsgLen > totalLength) {
-            if (--pointPos < 0) {
-                emit writeToConsole("[Vector] Not enough length in lines to encode secret message.\n");
-                return false;
-            }
-            totalMsgLen /= 10;
-        }
-
-        mFPPos = pointPos;
-    }
-
-    //FIXME1
-    if (mIsDebug) qDebug() << "mFPPos = " << mFPPos;
 
     bool firstTime = true;
 
@@ -263,14 +212,82 @@ bool Vector::Encode() {
 
         // First polyline's first point adjustment.
         if (firstTime) {
+            int random;
+
             // Initialize pseudorandom number generator
             // using user's password and first point's Y coord.
             qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
 
+            if (mIsDebug) qDebug() << "mMsg.size() = " << mMsg.size();
+
+            // Randomize secret message length for safety
+            // (length info isn't encrypted).
+            int msgLen;
+            random = qrand() % 100000000;
+            msgLen = random + mMsg.size();
+            if (msgLen >= 100000000) msgLen = msgLen - 100000000;
+
+            // And insert as new length for encoding.
+            msgBytesAsString.append(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen));
+
+            // Same with settings.
+            int settings = 0;
+            settings = mIsCompress;
+            settings = (mIsEncrypt << 1) | settings;
+
+            random = qrand() % 10;
+            settings = random + settings;
+            if (settings >= 10) settings = settings - 10;
+
+            msgBytesAsString.append(QString::number(settings));
+
+            for (int i = 0; i < mMsg.size(); i++) {
+                quint8 byte = mMsg[i];
+                QString sbyte = QString::number(byte);
+                QString append = QString(3 - sbyte.size(), '0') + sbyte;
+                msgBytesAsString.append(append);
+            }
+
+            //FIXME1
+            if (mIsDebug) debugMessage(msgBytesAsString);
+
+            // Auto compute the floating point position of the message
+            // based on the length of all encodable lines.
+            if (mIsFPPosMax) {
+
+                // Get the total sum of all lines lengths.
+                qreal totalLength = 0;
+                for (qint32 i = 0; i < nl.size(); i++) {
+                    QStringList in = nl.at(i).toElement().attribute("d").split(" ");
+                    if (in.contains("s", Qt::CaseInsensitive)) continue;
+                    if (in.contains("c", Qt::CaseInsensitive)) continue;
+                    if (in.contains("l", Qt::CaseInsensitive)) continue;
+
+                    totalLength += polyLineLength(in);
+                }
+
+                // Get the max floating point position,
+                // that still enables the message to be encoded.
+                int pointPos = 9;
+                qreal totalMsgLen = totalMessageLength(msgBytesAsString, pointPos);
+                while (totalMsgLen > totalLength) {
+                    if (--pointPos < 0) {
+                        emit writeToConsole("[Vector] Not enough length in lines to encode secret message.\n");
+                        return false;
+                    }
+                    totalMsgLen /= 10;
+                }
+
+                mFPPos = pointPos;
+            }
+
+            //FIXME1
+            if (mIsDebug) qDebug() << "mFPPos = " << mFPPos;
+
             // Randomize floating point position info.
-            QString numberSelector = QString("0123456789").repeated(2);
-            int random = qrand() % 10;
-            int fppos = numberSelector.at(random + mFPPos).digitValue();
+            random = qrand() % 10;
+            int fppos = random + mFPPos;
+            if (fppos >= 10) fppos = fppos - 10;
 
             // Encode the floating point position info
             // into X coord's last digit
@@ -472,6 +489,8 @@ bool Vector::Decode() {
     QDomNodeList nl = doc.elementsByTagName("path");
 
     int fppos;
+    int randomMsgLen;
+    int randomSettings;
     for (qint32 i = 0; i < nl.size(); i++) {
 
         QStringList in = nl.at(i).toElement().attribute("d").split(" ");
@@ -481,11 +500,14 @@ bool Vector::Decode() {
         if (in.contains("l", Qt::CaseInsensitive)) continue;
 
         qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
-        QString numberSelector = QString("0123456789").repeated(2);
-        int random = qrand() % 10;
+
+        randomMsgLen = qrand() % 100000000;
+        randomSettings = qrand() % 10;
+        int randomFppos = qrand() % 10;
 
         fppos = digitAt(in.at(1).split(",").first());
-        fppos = numberSelector.indexOf(QString::number(fppos), random) - random;
+        fppos = fppos - randomFppos;
+        if (fppos < 0) fppos = 10 - fppos;
 
         break;
     }
@@ -503,6 +525,9 @@ bool Vector::Decode() {
 
     if (mIsDebug) qDebug() << "msgLen = " << msgLen;
 
+    msgLen = msgLen - randomMsgLen;
+    if (msgLen < 0) msgLen = 100000000 - msgLen;
+
     if (!msgLen) {
         emit writeToConsole("[Vector] Decoded length of the secret message is 0. Are you sure this image contains a message?\n");
         return false;
@@ -512,6 +537,9 @@ bool Vector::Decode() {
 
     nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos);
     int settings = msgBytesAsString.at(0).digitValue();
+    settings = settings - randomSettings;
+    if (settings < 0) settings = 10 - settings;
+
     bool isCompress = settings & 1;
     bool isEncrypt = (settings >> 1) & 1;
     msgBytesAsString.remove(0, 1);
