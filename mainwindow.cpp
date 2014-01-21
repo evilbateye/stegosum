@@ -20,6 +20,7 @@
 #include "utils.hpp"
 #include "raster.h"
 #include "vector.h"
+#include "variation.h"
 
 #include <QImageReader>
 #include <QImageWriter>
@@ -125,6 +126,7 @@ MainWindow::MainWindow(QWidget *parent) :
         ui->encodeButton->setEnabled(true);
         ui->decodeButton->setEnabled(true);
     }
+
 }
 
 void MainWindow::adjustMyScrollBars()

@@ -20,7 +20,8 @@ SOURCES += main.cpp\
     utils.cpp \
     stegosum.cpp \
     raster.cpp \
-    vector.cpp
+    vector.cpp \
+    variation.cpp
 
 HEADERS  += mainwindow.h \
     secretmsgtextedit.h \
@@ -31,7 +32,8 @@ HEADERS  += mainwindow.h \
     utils.hpp \
     stegosum.h \
     raster.h \
-    vector.h
+    vector.h \
+    variation.h
 
 FORMS    += mainwindow.ui
 

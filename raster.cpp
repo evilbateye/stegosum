@@ -1,4 +1,5 @@
 #include "raster.h"
+#include "variation.h"
 
 Raster::Raster(const QString &name)
 {
@@ -232,42 +233,76 @@ void Raster::moveSequence(QImage & image, quint16 key, qint32 move) {
     for (qint32 i = 0; i < move; i++) qrand();
 }
 
+//qint32 Raster::encodeLookAhead(qint32 & start, QImage & image, quint16 key, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
+//{
+//    int varis[6] = {0, 1, 2, 3, 4, 5};
+//    variationObj tmpVar = {0, {0, 0, 0}};
+//    variationObj selectedVar = {0, {0, 0, 0}};
+//    qint32 offset = pixVect.size() - 1 - start;
+
+//    int c = 0;
+//    qint32 minimum = pixVect.size();
+//    qint32 numOfGenPoints = 0;
+//    do {
+//        if (!tmpVar.isSame(varis)) {
+//            tmpVar.set(varis, c++);
+
+//            moveSequence(image, key, offset);
+
+//            QVector<QRgb *> tmpPixVect(pixVect);
+//            qint32 tmpStart = start;
+
+//            numOfGenPoints = encodeLookAhead(tmpStart, tmpVar, mIsMeta, msgBVect, tmpPixVect);
+
+//            if (numOfGenPoints && numOfGenPoints < minimum) {
+//                minimum = numOfGenPoints;
+//                selectedVar.set(tmpVar.variation, tmpVar.code);
+//            }
+//        }
+//    } while (std::next_permutation(varis, varis + 6));
+
+//    if (minimum == pixVect.size()) return 0;
+
+//    moveSequence(image, key, offset);
+
+//    return encodeLookAhead(start, selectedVar, mIsMeta, msgBVect, pixVect);
+//}
+
 qint32 Raster::encodeLookAhead(qint32 & start, QImage & image, quint16 key, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
 {
-    quint8 varis[6] = {0, 1, 2, 3, 4, 5};
-    variationObj tmpVar = {0, {0, 0, 0}};
-    variationObj selectedVar = {0, {0, 0, 0}};
+    Variation v(6, 3);
+
+    variationObj tmpV = {0, {0, 0, 0}};
+    variationObj selectedV = {0, {0, 0, 0}};
+
     qint32 offset = pixVect.size() - 1 - start;
 
-    int c = 0;
     qint32 minimum = pixVect.size();
     qint32 numOfGenPoints = 0;
     do {
-        if (!tmpVar.isSame(varis)) {
-            tmpVar.set(varis, c++);
+        tmpV.set(v.getVariation(), v.getCode());
 
-            moveSequence(image, key, offset);
+        moveSequence(image, key, offset);
 
-            QVector<QRgb *> tmpPixVect(pixVect);
-            qint32 tmpStart = start;
+        QVector<QRgb *> tmpPixVect(pixVect);
+        qint32 tmpStart = start;
 
-            numOfGenPoints = encodeLookAhead(tmpStart, tmpVar, mIsMeta, msgBVect, tmpPixVect);
+        numOfGenPoints = encodeLookAhead(tmpStart, tmpV, mIsMeta, msgBVect, tmpPixVect);
 
-            if (numOfGenPoints && numOfGenPoints < minimum) {
-                minimum = numOfGenPoints;
-                selectedVar.set(tmpVar.variation, tmpVar.code);
-            }
+        if (numOfGenPoints && numOfGenPoints < minimum) {
+            minimum = numOfGenPoints;
+            selectedV.set(tmpV.variation, tmpV.code);
         }
-    } while (std::next_permutation(varis, varis + 6));
+    } while (v.next());
 
     if (minimum == pixVect.size()) return 0;
 
     moveSequence(image, key, offset);
 
-    return encodeLookAhead(start, selectedVar, mIsMeta, msgBVect, pixVect);
+    return encodeLookAhead(start, selectedV, mIsMeta, msgBVect, pixVect);
 }
 
-void Raster::getPermutation(quint8 code, quint8 * permutation, quint8 selector)
+void Raster::getPermutation(int code, int * permutation, int selector)
 {
     quint8 i = 0;
     variationObj tmpVar = {0, {0, 0, 0}};
@@ -279,6 +314,66 @@ void Raster::getPermutation(quint8 code, quint8 * permutation, quint8 selector)
     } while (std::next_permutation(permutation, permutation + selector));
 }
 
+//qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
+//{
+//    qint32 oldStart = start;
+
+//    bool isMeta = false;
+//    quint8 variationCode = 0;
+//    decodeFromPixel(start, pixVect, 2, Utils::colorsObj(true, true, true), 4, 1, &isMeta, 7, &variationCode);
+
+//    variationObj v = {variationCode, {0, 1, 2, 3, 4, 5}};
+//    getPermutation(v.code, v.variation, 6);
+
+//    if (!isMeta) {
+
+//        while (msgBVect.size() < numOfBitsToDecode) {
+//            QRgb * pixel = nextPixel(start, pixVect);
+//            if (!pixel) return 0;
+
+//            quint8 updatedColors[3];
+//            updatedColors[0] = qRed(*pixel);
+//            updatedColors[1] = qGreen(*pixel);
+//            updatedColors[2] = qBlue(*pixel);
+
+//            for (quint8 j = 0; j < 3; j++) {
+//                for (quint8 k = 0; k < (updatedColors[j] & 0x03); k++) {
+//                    msgBVect.push_back((updatedColors[j] >> (2 + v.variation[k])) & 0x01);
+//                }
+//            }
+//        }
+
+//        return oldStart - start;
+//    }
+
+//    while (msgBVect.size() < numOfBitsToDecode) {
+//        quint8 permutationCodes[2] = {0, 0};
+//        decodeFromPixel(start, pixVect, 2, Utils::colorsObj(true, true, true), 4, 3, &permutationCodes[0], 3, &permutationCodes[1]);
+
+//        for (quint8 i = 0; i < 2; i++) {
+
+//            QRgb * pixel = nextPixel(start, pixVect);
+//            if (!pixel) return 0;
+
+//            quint8 updatedColors[3];
+//            updatedColors[0] = qRed(*pixel);
+//            updatedColors[1] = qGreen(*pixel);
+//            updatedColors[2] = qBlue(*pixel);
+
+//            permutationObj p = {permutationCodes[i], {0, 0, 0}, {0, 1, 2}};
+//            getPermutation(p.code, p.permut, 3);
+
+//            for (quint8 j = 0; j < 3; j++) {
+//                for (quint8 k = 0; k < (updatedColors[p.permut[j]] & 0x03); k++) {
+//                    msgBVect.push_back((updatedColors[p.permut[j]] >> (2 + v.variation[k])) & 0x01);
+//                }
+//            }
+//        }
+//    }
+
+//    return oldStart - start;
+//}
+
 qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect)
 {
     qint32 oldStart = start;
@@ -287,8 +382,8 @@ qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector
     quint8 variationCode = 0;
     decodeFromPixel(start, pixVect, 2, Utils::colorsObj(true, true, true), 4, 1, &isMeta, 7, &variationCode);
 
-    variationObj v = {variationCode, {0, 1, 2, 3, 4, 5}};
-    getPermutation(v.code, v.variation, 6);
+    Variation varia(6, 3);
+    varia.setCode(variationCode);
 
     if (!isMeta) {
 
@@ -303,7 +398,7 @@ qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector
 
             for (quint8 j = 0; j < 3; j++) {
                 for (quint8 k = 0; k < (updatedColors[j] & 0x03); k++) {
-                    msgBVect.push_back((updatedColors[j] >> (2 + v.variation[k])) & 0x01);
+                    msgBVect.push_back((updatedColors[j] >> (2 + (varia.getVariation())[k])) & 0x01);
                 }
             }
         }
@@ -330,7 +425,7 @@ qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector
 
             for (quint8 j = 0; j < 3; j++) {
                 for (quint8 k = 0; k < (updatedColors[p.permut[j]] & 0x03); k++) {
-                    msgBVect.push_back((updatedColors[p.permut[j]] >> (2 + v.variation[k])) & 0x01);
+                    msgBVect.push_back((updatedColors[p.permut[j]] >> (2 + (varia.getVariation())[k])) & 0x01);
                 }
             }
         }

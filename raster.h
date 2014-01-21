@@ -13,20 +13,21 @@ private:
         qint32 total;
     };
     struct variationObj {
-        quint8 code;
-        quint8 variation[6];
-        bool isSame(quint8 * array) {
+        int code;
+        int variation[6];
+        //FIXME delete
+        bool isSame(int * array) {
             return variation[0] == array[0] && variation[1] == array[1] && variation[2] == array[2];
         }
-        void set(quint8 * array, quint8 code) {
+        void set(int * array, int code) {
             for (quint8 i = 0; i < 3; i++) variation[i] = array[i];
             this->code = code;
         }
     };
     struct permutationObj {
-        quint8 code;
-        quint8 counts[3];
-        quint8 permut[3];
+        int code;
+        int counts[3];
+        int permut[3];
         void set(permutationObj & p) {
             code = p.code;
             for (qint8 i = 0; i < 3; i++) {
@@ -39,7 +40,7 @@ private:
             counts[1] = 0;
             counts[2] = 0;
         }
-        quint16 getCountsSum() { return counts[0] + counts[1] + counts[2]; }
+        int getCountsSum() { return counts[0] + counts[1] + counts[2]; }
     };
 public:
     Raster(const QString & name);
@@ -70,7 +71,7 @@ private:
     qint32 encodeLookAhead(qint32 & start, QImage & image, quint16 key, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect);
     qint32 encodeLookAhead(qint32 & start, variationObj variation, bool isMeta, QVector<bool> &msgBVect, QVector<QRgb *> & pixVect);
     qint32 decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect);
-    void getPermutation(quint8 code, quint8 * permutation, quint8 selector);
+    void getPermutation(int code, int *permutation, int selector);
     void moveSequence(QImage & image, quint16 key, qint32 move);
     qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...);
     qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector);
