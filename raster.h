@@ -2,46 +2,56 @@
 #define RASTER_H
 
 #include "stegosum.h"
+#include "variation.h"
+#include <iostream>
 
 class Raster : public Stegosum
 {
 private:
+
     struct statsObj {
         qint32 bitsR;
         qint32 bitsG;
         qint32 bitsB;
         qint32 total;
     };
-    struct variationObj {
+
+    struct ColorPermutation {
         int code;
-        int variation[6];
-        //FIXME delete
-        bool isSame(int * array) {
-            return variation[0] == array[0] && variation[1] == array[1] && variation[2] == array[2];
+        int permutation[3];
+
+        ColorPermutation() {
+            code = 0;
+            for (int i = 0; i < 3; i++) permutation[i] = i;
         }
-        void set(int * array, int code) {
-            for (quint8 i = 0; i < 3; i++) variation[i] = array[i];
-            this->code = code;
+
+        bool next() {
+            code++;
+            return std::next_permutation(permutation, permutation + 3);
         }
-    };
-    struct permutationObj {
-        int code;
-        int counts[3];
-        int permut[3];
-        void set(permutationObj & p) {
+
+        void set(ColorPermutation & p) {
             code = p.code;
-            for (qint8 i = 0; i < 3; i++) {
-                counts[i] = p.counts[i];
-                permut[i] = p.permut[i];
-            }
+            for (int i = 0; i < 3; i++) permutation[i] = p.permutation[i];
         }
-        void clearCounts() {
-            counts[0] = 0;
-            counts[1] = 0;
-            counts[2] = 0;
+
+        void setCode(int code) {
+            reset();
+            while (this->code != code) next();
         }
-        int getCountsSum() { return counts[0] + counts[1] + counts[2]; }
+
+        void reset() {
+            code = 0;
+            for (int i = 0; i < 3; i++) permutation[i] = i;
+        }
+
+        void print() {
+            std::cout << "color permutation " << code << " :";
+            for (int i = 0; i < 3; i++) std::cout << " " << permutation[i];
+            std::cout << std::endl;
+        }
     };
+
 public:
     Raster(const QString & name);
     bool Encode();
@@ -55,8 +65,6 @@ public:
 
 private:
     statsObj mStats[4];
-    qint32 mMetaStats;
-
     QMap<Utils::Color, QImage> mSelectionIn;
     QMap<Utils::Color, QImage> mSelectionOut;
 
@@ -69,9 +77,8 @@ private:
     void setStats(statsObj * stats, quint8 bits, quint8 color);
     void resetStats(statsObj *stats);
     qint32 encodeLookAhead(qint32 & start, QImage & image, quint16 key, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect);
-    qint32 encodeLookAhead(qint32 & start, variationObj variation, bool isMeta, QVector<bool> &msgBVect, QVector<QRgb *> & pixVect);
+    qint32 encodeLookAhead(qint32 & start, Variation & variation, ColorPermutation & permutation, QVector<bool> &msgBVect, QVector<QRgb *> & pixVect);
     qint32 decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect);
-    void getPermutation(int code, int *permutation, int selector);
     void moveSequence(QImage & image, quint16 key, qint32 move);
     qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...);
     qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector);

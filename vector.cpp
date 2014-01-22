@@ -183,7 +183,7 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "0123456789";
+        mMsg = "a";
     }
 
     if (mSelXmlIn[Utils::COLOR_NONE].isEmpty()) {

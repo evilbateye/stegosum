@@ -126,7 +126,6 @@ MainWindow::MainWindow(QWidget *parent) :
         ui->encodeButton->setEnabled(true);
         ui->decodeButton->setEnabled(true);
     }
-
 }
 
 void MainWindow::adjustMyScrollBars()
@@ -554,21 +553,30 @@ void MainWindow::setNumMax()
 
 void MainWindow::on_red_radio_clicked(bool checked)
 {
-    Q_UNUSED(checked);
+    if (!checked && !ui->green_radio->isChecked() && !ui->blue_radio->isChecked()) {
+        ui->red_radio->setChecked(true);
+        return;
+    }
     setNumMax();
     updateStatusBar();
 }
 
 void MainWindow::on_green_radio_clicked(bool checked)
 {
-    Q_UNUSED(checked);
+    if (!checked && !ui->red_radio->isChecked() && !ui->blue_radio->isChecked()) {
+        ui->green_radio->setChecked(true);
+        return;
+    }
     setNumMax();
     updateStatusBar();
 }
 
 void MainWindow::on_blue_radio_clicked(bool checked)
 {
-    Q_UNUSED(checked);
+    if (!checked && !ui->green_radio->isChecked() && !ui->red_radio->isChecked()) {
+        ui->blue_radio->setChecked(true);
+        return;
+    }
     setNumMax();
     updateStatusBar();
 }
@@ -856,7 +864,6 @@ void MainWindow::on_actionEncode_triggered()
     mStegosum->setUp(this, true, (ui->compressSlider->value()) ? true : false,
                      ui->encryptCheckBox->isChecked(),
                      ui->lookAheadRadio->isChecked(),
-                     ui->metaCheckBox->isChecked(),
                      ui->FPPosSlider->value(),
                      ui->checkBoxMaxFPPosition->isChecked());
     mStegosum->start();

@@ -4,13 +4,19 @@
 class Variation
 {
 private:
-    int * mVariation;
     int mN;
     int mK;
     int mCode;
     int mTotalVariations;
+    int * mVariation;
 public:
     Variation(int n, int k);
+    Variation(Variation & v);
+    Variation();
+    void set(Variation & v);
+    int getN() { return mN; }
+    int getK() { return mK; }
+    int getTotalVariations() { return mTotalVariations; }
     bool next();
     int getCode();
     int * getVariation();

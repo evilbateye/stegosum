@@ -14,7 +14,7 @@ void Stegosum::run()
     else emit succes(Decode());
 }
 
-void Stegosum::setUp(MainWindow * mw, bool encode, bool isCompress, bool isEncrypt, bool isLookAhead, bool isMeta, int fppos, bool isfpposmax)
+void Stegosum::setUp(MainWindow * mw, bool encode, bool isCompress, bool isEncrypt, bool isLookAhead, int fppos, bool isfpposmax)
 {
     mMsg = mw->mSecretBytes;
 
@@ -25,7 +25,6 @@ void Stegosum::setUp(MainWindow * mw, bool encode, bool isCompress, bool isEncry
     mIsCompress = isCompress;
     mIsEncrypt = isEncrypt;
     mIsLookAhead = isLookAhead;
-    mIsMeta = isMeta;
     mFPPos = fppos;
     mIsFPPosMax = isfpposmax;
 

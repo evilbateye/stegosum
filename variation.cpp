@@ -8,6 +8,30 @@ Variation::Variation(int n, int k) : mN(n), mK(k), mCode(0) {
     mTotalVariations = qPow(mN, mK);
 }
 
+Variation::Variation(Variation & v) {
+    mN = v.getN();
+    mK = v.getK();
+    mCode = v.getCode();
+    mTotalVariations = v.getTotalVariations();
+    mVariation = new int[mK];
+
+    for (int i = 0; i < mK; i++) mVariation[i] = (v.getVariation())[i];
+}
+
+Variation::Variation() : mN(0), mK(0), mCode(-1), mVariation(0), mTotalVariations(0) {}
+
+void Variation::set(Variation & v) {
+    mN = v.getN();
+    mK = v.getK();
+    mCode = v.getCode();
+    mTotalVariations = v.getTotalVariations();
+
+    if (mVariation) delete mVariation;
+    mVariation = new int[mK];
+
+    for (int i = 0; i < mK; i++) mVariation[i] = (v.getVariation())[i];
+}
+
 bool Variation::next() {
 
     mCode++;

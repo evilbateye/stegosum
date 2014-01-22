@@ -22,7 +22,7 @@ public:
     void run();
     virtual bool Encode() = 0;
     virtual bool Decode() = 0;
-    void setUp(MainWindow * mw, bool encode = true, bool isCompress = false, bool isEncrypt = false, bool isLookAhead = false, bool isMeta = false, int fppos = 8, bool isfpposmax = false);
+    void setUp(MainWindow * mw, bool encode = true, bool isCompress = false, bool isEncrypt = false, bool isLookAhead = false, int fppos = 8, bool isfpposmax = false);
     //virtual QImage convertToLSB() = 0;
     virtual void save(QString & name) = 0;
 
@@ -54,7 +54,6 @@ protected:
     bool mIsCompress;
     bool mIsEncrypt;
     bool mIsLookAhead;
-    bool mIsMeta;
     int mFPPos;
     bool mIsFPPosMax;
     bool mIsDebug;
