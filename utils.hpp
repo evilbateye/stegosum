@@ -32,6 +32,7 @@ public:
     Utils();
     static qint32 pixelsNeeded(qint32 bits, quint8 selectedColors, quint8 toHowManyBits = 1);
     static QByteArray encrypt(const QByteArray &msg, const QString &password);
+    static QByteArray decrypt(const QByteArray & msg, const QString & password);
 
 };
 

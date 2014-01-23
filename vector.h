@@ -64,6 +64,7 @@ private:
     int digitAt(QString number, int pos = 0);
     void setMainLine(QLineF & line, QStringList & in, int & index);
     QString secretFromLine(int lineNumber, QLineF & mainLine, QStringList & in);
+    bool isLineSupported(QStringList & in);
 };
 
 #endif // VECTOR_H

@@ -25,3 +25,18 @@ QByteArray Utils::encrypt(const QByteArray & msg, const QString & password)
     ret += cipher.process(msg).toByteArray();
     return ret;
 }
+
+QByteArray Utils::decrypt(const QByteArray & msg, const QString & password)
+{
+    if (password.isEmpty()) return QByteArray();
+
+    QCA::Cipher cipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding);
+
+    QCA::SymmetricKey key = QCA::SymmetricKey(password.toAscii());
+
+    QCA::InitializationVector iv(msg.left(16));
+
+    cipher.setup(QCA::Decode, key, iv);
+
+    return cipher.process(msg.mid(16)).toByteArray();
+}

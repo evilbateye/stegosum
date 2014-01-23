@@ -29,8 +29,6 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = 0);
-    QByteArray encrypt(QByteArray msg);
-    QByteArray decrypt(QByteArray msg);
     ~MainWindow();
 
 private slots:

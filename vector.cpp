@@ -108,6 +108,20 @@ qreal Vector::totalMessageLength(QString msg, int fpppos) {
     return length;
 }
 
+bool Vector::isLineSupported(QStringList & in) {
+    if (in.contains("q", Qt::CaseInsensitive)) return false;
+    if (in.contains("c", Qt::CaseInsensitive)) return false;
+    if (in.contains("s", Qt::CaseInsensitive)) return false;
+
+    if (in.contains("l", Qt::CaseInsensitive)) return false;
+    if (in.contains("h", Qt::CaseInsensitive)) return false;
+    if (in.contains("v", Qt::CaseInsensitive)) return false;
+
+    if (in.contains("z", Qt::CaseInsensitive)) return false;
+
+    return true;
+}
+
 bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polylineStart, int & lineStart, qreal & c, int fppos) {
 
     if (polylineStart == nodes.size()) return true;
@@ -123,9 +137,8 @@ bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polyline
     for (; polylineStart < nodes.size(); polylineStart++) {
 
         QStringList in = nodes.at(polylineStart).toElement().attribute("d").split(" ");
-        if (in.contains("s", Qt::CaseInsensitive)) continue;
-        if (in.contains("c", Qt::CaseInsensitive)) continue;
-        if (in.contains("l", Qt::CaseInsensitive)) continue;
+
+        if (!isLineSupported(in)) continue;
 
         for (; lineStart < in.size() - 1; lineStart++) {
 
@@ -164,6 +177,17 @@ bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polyline
 
 bool Vector::Encode() {
 
+    //FIXME1
+    if (mIsDebug) {
+        QFile file;
+        file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing.svg");
+        file.open(QFile::ReadOnly);
+        mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
+        file.close();
+        mMsg = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        mPassword = "";
+    }
+
     // A little hack to ignore the encrypt checkbox.
     // In raster images we can choose to use a password
     // to randomly spread out the message in LSB bits,
@@ -176,15 +200,6 @@ bool Vector::Encode() {
 
     QDomDocument doc("svgFile");
 
-    //FIXME1
-    if (mIsDebug) {
-        QFile file;
-        file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing.svg");
-        file.open(QFile::ReadOnly);
-        mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
-        file.close();
-        mMsg = "a";
-    }
 
     if (mSelXmlIn[Utils::COLOR_NONE].isEmpty()) {
         emit writeToConsole("[Vector] Cannot open input vector image for encoding.\n");
@@ -206,9 +221,7 @@ bool Vector::Encode() {
 
         QStringList in = nl.at(i).toElement().attribute("d").split(" ");
 
-        if (in.contains("s", Qt::CaseInsensitive)) continue;
-        if (in.contains("c", Qt::CaseInsensitive)) continue;
-        if (in.contains("l", Qt::CaseInsensitive)) continue;
+        if (!isLineSupported(in)) continue;
 
         // First polyline's first point adjustment.
         if (firstTime) {
@@ -218,7 +231,6 @@ bool Vector::Encode() {
             // using user's password and first point's Y coord.
             qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
 
-            if (mIsDebug) qDebug() << "mMsg.size() = " << mMsg.size();
 
             // Randomize secret message length for safety
             // (length info isn't encrypted).
@@ -226,6 +238,8 @@ bool Vector::Encode() {
             random = qrand() % 100000000;
             msgLen = random + mMsg.size();
             if (msgLen >= 100000000) msgLen = msgLen - 100000000;
+
+            if (mIsDebug) std::cout << "[E] mMsg.size() = " << mMsg.size() << "; randomized = " << msgLen << std::endl;
 
             // And insert as new length for encoding.
             msgBytesAsString.append(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen));
@@ -235,9 +249,13 @@ bool Vector::Encode() {
             settings = mIsCompress;
             settings = (mIsEncrypt << 1) | settings;
 
+            if (mIsDebug) std::cout << "[E] settings = " << settings << "; ";
+
             random = qrand() % 10;
             settings = random + settings;
             if (settings >= 10) settings = settings - 10;
+
+            if (mIsDebug) std::cout << "randomized = " << settings << std::endl;
 
             msgBytesAsString.append(QString::number(settings));
 
@@ -249,7 +267,10 @@ bool Vector::Encode() {
             }
 
             //FIXME1
-            if (mIsDebug) debugMessage(msgBytesAsString);
+            if (mIsDebug) {
+                std::cout << "[E] ";
+                debugMessage(msgBytesAsString);
+            }
 
             // Auto compute the floating point position of the message
             // based on the length of all encodable lines.
@@ -259,9 +280,8 @@ bool Vector::Encode() {
                 qreal totalLength = 0;
                 for (qint32 i = 0; i < nl.size(); i++) {
                     QStringList in = nl.at(i).toElement().attribute("d").split(" ");
-                    if (in.contains("s", Qt::CaseInsensitive)) continue;
-                    if (in.contains("c", Qt::CaseInsensitive)) continue;
-                    if (in.contains("l", Qt::CaseInsensitive)) continue;
+
+                    if (!isLineSupported(in)) continue;
 
                     totalLength += polyLineLength(in);
                 }
@@ -281,13 +301,13 @@ bool Vector::Encode() {
                 mFPPos = pointPos;
             }
 
-            //FIXME1
-            if (mIsDebug) qDebug() << "mFPPos = " << mFPPos;
-
             // Randomize floating point position info.
             random = qrand() % 10;
             int fppos = random + mFPPos;
             if (fppos >= 10) fppos = fppos - 10;
+
+            //FIXME1
+            if (mIsDebug) std::cout << "[E] mFPPos = " << mFPPos << "; randomized = " << fppos << "; random number = " << random << std::endl << std::endl;
 
             // Encode the floating point position info
             // into X coord's last digit
@@ -326,8 +346,12 @@ bool Vector::Encode() {
 
             while (!msgBytesAsString.isEmpty()) {
 
-                // c = msgBytesAsString.left(8).insert(FLOATING_POINT_POS, '.').toDouble();
-                c = Stegosum::streamToReal(msgBytesAsString.left(8), mFPPos);
+                // streamToReal function expects the input
+                // to be a string of length 8
+                QString tmpstr = msgBytesAsString.left(8);
+                if (tmpstr.size() < 8) tmpstr.append(QString(8 - tmpstr.size(), '0'));
+
+                c = Stegosum::streamToReal(tmpstr, mFPPos);
 
                 csum += c;
 
@@ -367,6 +391,10 @@ bool Vector::Encode() {
                 QString A = QString::number(a, 'g', 8);
                 QString B = QString::number(b, 'g', 8);
 
+                if (msgBytesAsString.size() == 0) {
+                    std::cout << "debug" <<  std::endl;
+                }
+
                 // Precision correction.
                 qreal C = QLineF(0, 0, A.toDouble(), B.toDouble()).length();
                 int dif = Stegosum::digitStream(c, mFPPos).toInt() - Stegosum::digitStream(C, mFPPos).toInt();
@@ -391,7 +419,7 @@ bool Vector::Encode() {
                     }
                 }
 
-                if (mIsDebug){
+                if (mIsDebug) {
                     C = QLineF(0, 0, A.toDouble(), B.toDouble()).length();
                     dif = Stegosum::digitStream(c, mFPPos).toInt() - Stegosum::digitStream(C, mFPPos).toInt();
 
@@ -495,9 +523,7 @@ bool Vector::Decode() {
 
         QStringList in = nl.at(i).toElement().attribute("d").split(" ");
 
-        if (in.contains("s", Qt::CaseInsensitive)) continue;
-        if (in.contains("c", Qt::CaseInsensitive)) continue;
-        if (in.contains("l", Qt::CaseInsensitive)) continue;
+        if (!isLineSupported(in)) continue;
 
         qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
 
@@ -506,14 +532,19 @@ bool Vector::Decode() {
         int randomFppos = qrand() % 10;
 
         fppos = digitAt(in.at(1).split(",").first());
-        fppos = fppos - randomFppos;
-        if (fppos < 0) fppos = 10 - fppos;
+
+        if (mIsDebug) std::cout << "[D] ramdomized = " << fppos;
+
+//        fppos = fppos - randomFppos;
+//        if (fppos < 0) fppos = 10 - fppos;
+
+        if (fppos < randomFppos) fppos += 10;
+        fppos -= randomFppos;
+
+        if (mIsDebug) std::cout << "; fppos = " << fppos << "; random number = " << randomFppos << std::endl;
 
         break;
     }
-
-    //FIXME1
-    if (mIsDebug) qDebug() << "fppos = " << fppos;
 
     QString msgBytesAsString;
     int firstPolyL = 0;
@@ -523,10 +554,15 @@ bool Vector::Decode() {
     nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos);
     int msgLen = msgBytesAsString.left(8).toInt();
 
-    if (mIsDebug) qDebug() << "msgLen = " << msgLen;
+    if (mIsDebug) std::cout << "[D] randomized = " << msgLen << "; ";
 
-    msgLen = msgLen - randomMsgLen;
-    if (msgLen < 0) msgLen = 100000000 - msgLen;
+//    msgLen = msgLen - randomMsgLen;
+//    if (msgLen < 0) msgLen = 100000000 - msgLen;
+
+    if (msgLen < randomMsgLen) msgLen += 100000000;
+    msgLen -= randomMsgLen;
+
+    if (mIsDebug) std::cout << "msgLen = " << msgLen << std::endl;
 
     if (!msgLen) {
         emit writeToConsole("[Vector] Decoded length of the secret message is 0. Are you sure this image contains a message?\n");
@@ -537,8 +573,16 @@ bool Vector::Decode() {
 
     nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos);
     int settings = msgBytesAsString.at(0).digitValue();
-    settings = settings - randomSettings;
-    if (settings < 0) settings = 10 - settings;
+
+    if (mIsDebug) std::cout << "[D] randomized = " << settings << "; ";
+
+//    settings = settings - randomSettings;
+//    if (settings < 0) settings = 10 - settings;
+
+    if (settings < randomSettings) settings += 10;
+    settings -= randomSettings;
+
+    if (mIsDebug) std::cout << "settings = " << settings << std::endl;
 
     bool isCompress = settings & 1;
     bool isEncrypt = (settings >> 1) & 1;
@@ -566,8 +610,7 @@ bool Vector::Decode() {
 
 //        QStringList in = nl.at(i).toElement().attribute("d").split(" ");
 
-//        if (in.contains("s", Qt::CaseInsensitive)) continue;
-//        if (in.contains("c", Qt::CaseInsensitive)) continue;
+//        if (!isLineSupported(in)) continue;
 
 //        QLineF line;
 //        line.setP1(QPointF(0, 0));
@@ -617,10 +660,13 @@ bool Vector::Decode() {
 //        c += QString::number(next.length(), 'g', 8).toDouble();
 //    }
 
-    msgBytesAsString.truncate(msgLen * 3);
+    msgBytesAsString.truncate(msgLen * 3);   
 
-    //FIXME1
-    if (mIsDebug) debugMessage(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen) + QString::number(settings) + msgBytesAsString);
+    //FIXME
+    if (mIsDebug) {
+        std::cout << "[D] ";
+        debugMessage(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen) + QString::number(settings) + msgBytesAsString);
+    }
 
     QByteArray msgBytes;
     int size = msgBytesAsString.size() / 3;
@@ -630,9 +676,6 @@ bool Vector::Decode() {
     }
 
     emit sendMessage(msgBytes, isCompress, isEncrypt);
-
-    //FIXME1
-    if (mIsDebug) qDebug() << msgBytes;
 
     return true;
 }
@@ -766,9 +809,8 @@ void Vector::iluminatePoints(QByteArray & arr) {
 
     for (int i = 0; i < l.size(); i++) {
         QStringList in = l.at(i).toElement().attribute("d").split(" ");
-        if (in.contains("s", Qt::CaseInsensitive)) continue;
-        if (in.contains("c", Qt::CaseInsensitive)) continue;
-        if (in.contains("l", Qt::CaseInsensitive)) continue;
+
+        if (!isLineSupported(in)) continue;
 
         bool m = in.at(0) == "m";
         QPointF point(in.at(1).split(",").first().toDouble(), in.at(1).split(",").last().toDouble());

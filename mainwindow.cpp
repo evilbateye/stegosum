@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
     mScaleFactor(1.0),
-    mIsDebug(false)
+    mIsDebug(true)
 {
     ui->setupUi(this);
 
@@ -479,40 +479,6 @@ void MainWindow::setProgress(int val)
     mPgBar->setValue(mPgBar->value() + val);
 }
 
-/*! 
- Encrypts the secret message bytes using aes128 block cipher
- and prepends 16 bytes initialisation vector before the
- secret message.
-
- @param  msg  secret message bytes
- @return  encrypted secret message
- @return asdfomgnon
- */
-QByteArray MainWindow::encrypt(QByteArray msg)
-{
-    QCA::SymmetricKey key = QCA::SymmetricKey(mPassword.toAscii());
-    QCA::InitializationVector iv = QCA::InitializationVector(16);
-
-    mCipher.setup(QCA::Encode, key, iv);
-
-    QByteArray ret = iv.toByteArray();
-    ret += mCipher.process(msg).toByteArray();
-    return ret;
-}
-
-QByteArray MainWindow::decrypt(QByteArray msg)
-{
-    QCA::SymmetricKey key = QCA::SymmetricKey(mPassword.toAscii());
-
-    if (mPassword.isEmpty()) return QByteArray();
-
-    QCA::InitializationVector iv(msg.left(16));
-
-    mCipher.setup(QCA::Decode, key, iv);
-
-    return mCipher.process(msg.mid(16)).toByteArray();
-}
-
 void MainWindow::compressSliderChangedHandler(int change)
 {
     if (change == 9) ui->compressLabelChange->setText("max");
@@ -525,14 +491,14 @@ void MainWindow::compressSliderChangedHandler(int change)
 
         if (ui->encryptCheckBox->isChecked())
         {
-            mSecretBytes = encrypt(mSecretBytes);
+            mSecretBytes = Utils::encrypt(mSecretBytes, mPassword);
         }
     }
     else
     {
         if (ui->encryptCheckBox->isChecked())
         {
-            mSecretBytes = encrypt(mUnchangedSecretBytes);
+            mSecretBytes = Utils::encrypt(mUnchangedSecretBytes, mPassword);
         }
         else
         {
@@ -604,7 +570,7 @@ void MainWindow::on_encryptCheckBox_clicked()
             codeArray = mUnchangedSecretBytes;
         }
 
-        mSecretBytes = encrypt(codeArray);
+        mSecretBytes = Utils::encrypt(codeArray, mPassword);
     }
     else
     {
@@ -635,7 +601,7 @@ void MainWindow::secretMsgTextChangedHandler()
 
     if (ui->encryptCheckBox->isChecked())
     {
-        mSecretBytes = encrypt(mSecretBytes);
+        mSecretBytes = Utils::encrypt(mSecretBytes, mPassword);
     }
 
     if (mUnchangedSecretBytes.isEmpty()) ui->encodeButton->setEnabled(false);
@@ -668,7 +634,10 @@ void MainWindow::secretMsgTextEditPressHandler()
 void MainWindow::receiveSecretMsg(QByteArray msgBytes, bool compressed, bool encrypted)
 {
     if (encrypted) {
-        msgBytes = decrypt(msgBytes);
+
+//        msgBytes = decrypt(msgBytes);
+        msgBytes = Utils::decrypt(msgBytes, mPassword);
+
         if (msgBytes.isEmpty()) {
             statusBar()->showMessage(tr("Error while decoding."), 2000);
             slotWriteToConsole("[MainWindow] Image probably has encrypted secret message in it. Wrong password.\n");
