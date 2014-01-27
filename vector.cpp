@@ -10,11 +10,16 @@
 #define SHOW_POINTS_W_AND_H 5
 
 #include <iostream>
+
 void debugMessage(QString msg) {
+
     while (!msg.isEmpty()) {
+
         std::cout << msg.left(8).toStdString() << " ";
+
         msg.remove(0, 8);
     }
+
     std::cout << std::endl;
 }
 
@@ -42,7 +47,9 @@ Vector::~Vector() {
 }
 
 void Vector::setSelected(Utils::Color color) {
+
     if (color == Utils::COLOR_PREV) color = mSelColor;
+
     mSelColor = color;
 
     if (color == Utils::COLOR_NONE) return;
@@ -59,6 +66,7 @@ void Vector::setSelected(Utils::Color color) {
 }
 
 QPair<QImage, QImage> Vector::get(Utils::Color color) {
+
     QBuffer buff;
     QImage in, out;
 
@@ -84,6 +92,7 @@ QPair<QImage, QImage> Vector::scale(float factor) {
     p.end();
 
     if (!mSelXmlOut[mSelColor].isEmpty()){
+
         QImage out(mSize * factor, QImage::Format_ARGB32);
         r.load(mSelXmlOut[mSelColor]);
         out.fill(0xffffffff);
@@ -98,10 +107,13 @@ QPair<QImage, QImage> Vector::scale(float factor) {
 }
 
 qreal Vector::totalMessageLength(QString msg, int fpppos) {
+
     qreal length = 0;
 
     while (!msg.isEmpty()) {
+
         length += Stegosum::streamToReal(msg.left(8), fpppos);
+
         msg.remove(0, 8);
     }
 
@@ -175,6 +187,44 @@ bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polyline
     return false;
 }
 
+int Vector::computeDifference(qreal precise, qreal a, qreal b)
+{
+    qreal rounded = QLineF(0, 0, a, b).length();
+
+    return Stegosum::digitStream(precise, mFPPos).toInt() - Stegosum::digitStream(rounded, mFPPos).toInt();
+}
+
+bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
+{
+    qreal realA = A.toDouble();
+    qreal realB = B.toDouble();
+
+    int dif = computeDifference(precise, realA, realB);
+
+    if (!dif) return true;
+
+    qreal & tinker = realA < realB ? realA : realB;
+
+    while (dif > 0) {
+
+        tinker = addToReal(tinker, 1, mFPPos).toDouble();
+
+        dif = computeDifference(precise, realA, realB);
+    }
+
+    while (dif < 0) {
+
+        tinker = addToReal(tinker, -1, mFPPos).toDouble();
+
+        dif = computeDifference(precise, realA, realB);
+    }
+
+    A = QString::number(realA, 'g', 8);
+    B = QString::number(realB, 'g', 8);
+
+    return dif == 0;
+}
+
 bool Vector::Encode() {
 
     //FIXME1
@@ -184,7 +234,7 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        mMsg = "aaaaaaaaaaaaaaaaaaaa";
         mPassword = "";
     }
 
@@ -230,7 +280,6 @@ bool Vector::Encode() {
             // Initialize pseudorandom number generator
             // using user's password and first point's Y coord.
             qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
-
 
             // Randomize secret message length for safety
             // (length info isn't encrypted).
@@ -356,6 +405,7 @@ bool Vector::Encode() {
                 csum += c;
 
                 if (csum > line.length()) {
+
                     // Msg doesn't fit to the end of this line.
                     // Adjust new relative coords of this lines end point,
                     // based on last encoded point.
@@ -375,11 +425,6 @@ bool Vector::Encode() {
 
                     msgBytesAsString.prepend(digits);
 
-                    // Deprecated:
-                    // Point before j + encoded has y coord odd,
-                    // j + encoded point doesn't have secret message.
-                    // out[j + encoded - 1] = out[j + encoded - 1].split(",").first() + "," + setEven(out[j + encoded - 1].split(",").last(), false);
-
                     break;
                 }
 
@@ -391,73 +436,23 @@ bool Vector::Encode() {
                 QString A = QString::number(a, 'g', 8);
                 QString B = QString::number(b, 'g', 8);
 
-                if (msgBytesAsString.size() == 0) {
-                    std::cout << "debug" <<  std::endl;
-                }
-
-                // Precision correction.
-                qreal C = QLineF(0, 0, A.toDouble(), B.toDouble()).length();
-                int dif = Stegosum::digitStream(c, mFPPos).toInt() - Stegosum::digitStream(C, mFPPos).toInt();
-                if (dif) {
-
-                    QString tmpA(A), tmpB(B);
-                    if (qFabs(A.toDouble()) < qFabs(B.toDouble()))
-                        tmpA = addToReal(A.toDouble(), dif, mFPPos);
-                    else
-                        tmpB = addToReal(B.toDouble(), dif, mFPPos);
-
-                    C = QLineF(0, 0, tmpA.toDouble(), tmpB.toDouble()).length();
-                    dif = Stegosum::digitStream(c, mFPPos).toInt() - Stegosum::digitStream(C, mFPPos).toInt();
-                    if (dif) {
-                        if (qFabs(A.toDouble()) > qFabs(B.toDouble()))
-                            A = addToReal(A.toDouble(), dif, mFPPos);
-                        else
-                            B = addToReal(B.toDouble(), dif, mFPPos);
-                    } else {
-                        A = tmpA;
-                        B = tmpB;
-                    }
-                }
-
-                if (mIsDebug) {
-                    C = QLineF(0, 0, A.toDouble(), B.toDouble()).length();
-                    dif = Stegosum::digitStream(c, mFPPos).toInt() - Stegosum::digitStream(C, mFPPos).toInt();
-
-                    if (dif) {
-                        qDebug() << "sumtin wong";
-                    }
+                if (!precisionCorrection(c, A, B)) {
+                    emit writeToConsole("[Vector] Precision correction failed.\n");
+                    return false;
                 }
 
                 out.insert(j + encoded++, A + "," + B);
 
-
                 asum = QString::number(asum + A.toDouble(), 'g', 8).toDouble();
                 bsum = QString::number(bsum + B.toDouble(), 'g', 8).toDouble();
 
-                // Deprecated:
-                // If last number of y coordinate is even,
-                // next point has secret message.
-                // bstr = setEven(b, true);
-                // out.insert(j + encoded++, QString::number(a, 'g', 8) + "," + bstr);
-
                 if (msgBytesAsString.isEmpty()) {
+
                     // Msg has been successfuly encoded,
                     // but we still need to adjust this lines end point's coords.
-
-                    // Deprecated:
-                    // c = line.length() - csum;
-                    // qreal a2 = ((c * line.dx()) / line.length());
-                    // qreal b2 = ((c * line.dy()) / line.length());
-
                     a = QString::number(line.dx() - asum, 'g', 8).toDouble();
                     b = QString::number(line.dy() - bsum, 'g', 8).toDouble();
                     out[j + encoded] = QString::number(a, 'g', 8) + "," + QString::number(b, 'g', 8);
-
-                    // Deprecated:
-                    // Point before j + encoded has y coord odd,
-                    // j + encoded point doesn't have secret message.
-                    // out[j + encoded - 1] = out[j + encoded - 1].split(",").first() + "," + setEven(out[j + encoded - 1].split(",").last(), false);
-
                 }
 
             }
@@ -535,9 +530,6 @@ bool Vector::Decode() {
 
         if (mIsDebug) std::cout << "[D] ramdomized = " << fppos;
 
-//        fppos = fppos - randomFppos;
-//        if (fppos < 0) fppos = 10 - fppos;
-
         if (fppos < randomFppos) fppos += 10;
         fppos -= randomFppos;
 
@@ -556,16 +548,13 @@ bool Vector::Decode() {
 
     if (mIsDebug) std::cout << "[D] randomized = " << msgLen << "; ";
 
-//    msgLen = msgLen - randomMsgLen;
-//    if (msgLen < 0) msgLen = 100000000 - msgLen;
-
     if (msgLen < randomMsgLen) msgLen += 100000000;
     msgLen -= randomMsgLen;
 
     if (mIsDebug) std::cout << "msgLen = " << msgLen << std::endl;
 
     if (!msgLen) {
-        emit writeToConsole("[Vector] Decoded length of the secret message is 0. Are you sure this image contains a message?\n");
+        emit writeToConsole("[Vector] Decoded length of the secret message is 0. Wrong password and/or the image doesn't containg any secret message.\n");
         return false;
     }
 
@@ -575,9 +564,6 @@ bool Vector::Decode() {
     int settings = msgBytesAsString.at(0).digitValue();
 
     if (mIsDebug) std::cout << "[D] randomized = " << settings << "; ";
-
-//    settings = settings - randomSettings;
-//    if (settings < 0) settings = 10 - settings;
 
     if (settings < randomSettings) settings += 10;
     settings -= randomSettings;
@@ -596,71 +582,7 @@ bool Vector::Decode() {
         }
     }
 
-//    QDomNodeList nl = doc.elementsByTagName("path");
-
-//    QString msgBytesAsString;
-
-//    int msgLen;
-
-//    int start = 2;
-
-//    qreal c = 0;
-
-//    for (qint32 i = 0; i < nl.size(); i++) {
-
-//        QStringList in = nl.at(i).toElement().attribute("d").split(" ");
-
-//        if (!isLineSupported(in)) continue;
-
-//        QLineF line;
-//        line.setP1(QPointF(0, 0));
-
-//        QLineF next;
-//        next.setP1(QPointF(0, 0));
-
-//        if (start == 2) {
-//            line.setP2(QPointF(in.at(start).split(",").first().toDouble(), in.at(start).split(",").last().toDouble()));
-//            msgLen = digitStream(line.length()).toInt();
-//        }
-
-//        // Deprecated:
-//        // int index = 1;
-//        // QLineF mainLine;
-//        // setMainLine(mainLine, in, index);
-//        // msgLen = secretFromLine(2, mainLine, in).toInt();
-
-//        for (int i = start + 1; i < in.size() - 1; i++) {
-
-//            line.setP2(QPointF(in.at(i).split(",").first().toDouble(), in.at(i).split(",").last().toDouble()));
-//            next.setP2(QPointF(in.at(i + 1).split(",").first().toDouble(), in.at(i + 1).split(",").last().toDouble()));
-
-//            if (linesNotParallel(line, next)) {
-//                c += QString::number(line.length(), 'g', 8).toDouble();
-//                continue;
-//            }
-
-//            msgBytesAsString.append(digitStream(line.length() + c));
-//            c = 0;
-
-//            if (msgBytesAsString.size() / 3 >= msgLen) break;
-
-//            // Deprecated:
-//            // if (i == index) {
-//            //     if (msgBytesAsString.size() / 3 >= msgLen) break;
-//            //     setMainLine(mainLine, in, index);
-//            //     continue;
-//            // }
-//            // msgBytesAsString += secretFromLine(i, mainLine, in);
-//        }
-
-//        if (msgBytesAsString.size() / 3 >= msgLen) break;
-
-//        start--;
-
-//        c += QString::number(next.length(), 'g', 8).toDouble();
-//    }
-
-    msgBytesAsString.truncate(msgLen * 3);   
+    msgBytesAsString.truncate(msgLen * 3);
 
     //FIXME
     if (mIsDebug) {
@@ -681,21 +603,27 @@ bool Vector::Decode() {
 }
 
 void Vector::save(QString &name) {
+
     QFile f(name);
+
     if (!f.open(QFile::WriteOnly)) {
         emit writeToConsole("[Vector] Cannot open file:" + name + " to save the modified svg file.\n");
         return;
     }
 
     QTextStream stream(&f);
+
     stream << mSelXmlOut[Utils::COLOR_NONE];
 
     f.close();
 }
 
 bool Vector::linesNotParallel(QLineF & line, QLineF & nextLine) {
+
     qreal angle = line.angleTo(nextLine);
+
     if (angle > ANGLE_PREC) angle = 360 - angle;
+
     return angle > ANGLE_PREC;
 }
 
@@ -770,32 +698,6 @@ QString Vector::addToReal(qreal real, int inc, int fppos) {
     return QString::number(numb, 'g', 8);
 }
 
-QString Vector::setEven(QString number, bool even, int & direction) {
-
-    int rightmost;
-
-    rightmost = digitAt(number);
-
-    int increment = ((rightmost % 2) ^ !even);
-
-    if (direction > 0) {
-        if ((rightmost - increment) < 0) direction++;
-        else {
-            increment = -increment;
-            direction--;
-        }
-    } else {
-        if ((rightmost + increment) / 10) {
-            increment = -increment;
-            direction--;
-        } else direction++;
-    }
-
-    setDigitAt(number, rightmost += increment);
-
-    return number;
-}
-
 void Vector::iluminatePoints(QByteArray & arr) {
 
     QDomDocument d("svgFile");
@@ -849,6 +751,7 @@ void Vector::iluminatePoints(QByteArray & arr) {
 }
 
 QString Vector::setDigitAt(QString number, int digit, int pos) {
+
     QString mantis = number.split(QRegExp("[eE]")).first();
 
     mantis.append(QString(9 - mantis.size(), '0'));
@@ -861,6 +764,7 @@ QString Vector::setDigitAt(QString number, int digit, int pos) {
 }
 
 int Vector::digitAt(QString number, int pos) {
+
     QString mantis = number.split(QRegExp("[eE]")).first();
 
     mantis.append(QString(9 - mantis.size(), '0'));
@@ -869,174 +773,3 @@ int Vector::digitAt(QString number, int pos) {
 
     return digit.digitValue();
 }
-
-QString Vector::setEven(QString number, bool even) {
-
-    int rightmost = digitAt(number);
-
-    int increment = ((rightmost % 2) ^ !even);
-    if (!even) increment = -increment;
-
-    return setDigitAt(number, rightmost += increment);
-}
-
-bool Vector::isEven(QString number) {
-    return !(digitAt(number) % 2);
-}
-
-void Vector::setMainLine(QLineF & line, QStringList & in,int & index) {
-    if (index == 1)
-        line.setP1(QPointF(in.at(index).split(",").first().toDouble(), in.at(index).split(",").last().toDouble()));
-    else
-        line.setP1(line.p2());
-
-    line.setP2(line.p1());
-    index++;
-
-    for (; index < in.size(); index++) {
-        line.setP2(line.p2() + QPointF(in.at(index).split(",").first().toDouble(), in.at(index).split(",").last().toDouble()));
-        if (!isEven(in.at(index).split(",").last())) break;
-    }
-
-    index++;
-    line.setP2(line.p2() + QPointF(in.at(index).split(",").first().toDouble(), in.at(index).split(",").last().toDouble()));
-}
-
-QString Vector::secretFromLine(int lineNumber, QLineF & mainLine, QStringList & in) {
-    return Stegosum::digitStream((in.at(lineNumber).split(",").first().toDouble() * mainLine.length()) / mainLine.dx(), mFPPos);
-}
-
-void Vector::Number::normalize() {
-
-    QStringList e = this->mFloatingPoint.last().split(QRegExp("[eE]"));
-
-    if (e.size() > 1) {
-        int exponent = e.last().toInt();
-
-        QString beforeDot = this->mFloatingPoint.first();
-        QString afterDot = e.first();
-
-        QString whole = beforeDot + afterDot;
-        int pos = beforeDot.size() + exponent;
-
-        QString tmp(whole);
-        tmp.chop(whole.size() - pos);
-
-        beforeDot = tmp;
-        beforeDot.append(QString(pos - whole.size(), '0'));
-
-        afterDot = whole.mid(pos);
-        afterDot.prepend(QString(-pos, '0'));
-
-        this->mFloatingPoint.first() = beforeDot;
-        this->mFloatingPoint.last() = afterDot;
-    }
-}
-
-void Vector::Number::fillzero(Number & other) {
-    int len = this->mFloatingPoint.first().size() - other.mFloatingPoint.first().size();
-
-    if (len > 0) {
-        other.mFloatingPoint.first().prepend(QString(len, '0'));
-    } else if (len < 0) {
-        this->mFloatingPoint.first().prepend(QString(-len, '0'));
-    }
-
-    len = this->mFloatingPoint.last().size() - other.mFloatingPoint.last().size();
-
-    if (len > 0) {
-        other.mFloatingPoint.last().append(QString(len, '0'));
-    } else if (len < 0) {
-        this->mFloatingPoint.last().append(QString(-len, '0'));
-    }
-}
-
-Vector::Number Vector::Number::operator- (const Number & other) {
-
-    Number mensenec(mFloatingPoint);
-    Number mensitel(other.mFloatingPoint);
-    Number result("");
-
-    if (mensenec < mensitel) {
-        mensenec.swap(mensitel);
-    }
-
-    mensenec.fillzero(mensitel);
-
-    QString r;
-    bool c = false;
-    for (int i = mensenec.size() - 1; i >= 0; i--) {
-        int up = mensenec.at(i).digitValue();
-        int down = mensitel.at(i).digitValue() + c;
-        if ((c = down > up)) up += 10;
-        r.prepend(QString::number(up - down));
-    }
-
-    result.mFloatingPoint.first() = r.left(mensenec.mFloatingPoint.first().size());
-    result.mFloatingPoint.last() = r.right(mensenec.mFloatingPoint.last().size());
-
-    result.clean();
-
-    return result;
-}
-
-void Vector::Number::clean() {
-    int i;
-    for (i = 0; i < mFloatingPoint.first().size(); i++) {
-        if (mFloatingPoint.first().at(i) != '0') break;
-    }
-    mFloatingPoint.first() = mFloatingPoint.first().mid(i);
-
-    int c = mFloatingPoint.last().size();
-    for (i = 0; i < mFloatingPoint.last().size(); i++) {
-        if (mFloatingPoint.last().at(--c) != '0') break;
-    }
-    mFloatingPoint.last().chop(i);
-}
-
-void Vector::Number::swap(Number & other) {
-    QStringList tmp(this->mFloatingPoint);
-    this->mFloatingPoint = other.mFloatingPoint;
-    other.mFloatingPoint = tmp;
-}
-
-bool Vector::Number::operator> (const Number & other) {
-    Number left(mFloatingPoint);
-    Number right(other.mFloatingPoint);
-    left.fillzero(right);
-    return left.mFloatingPoint.join("") > right.mFloatingPoint.join("");
-}
-
-bool Vector::Number::operator< (const Number & other) {
-    Number left(mFloatingPoint);
-    Number right(other.mFloatingPoint);
-    left.fillzero(right);
-    return left.mFloatingPoint.join("") < right.mFloatingPoint.join("");
-}
-
-bool Vector::Number::operator>= (const Number & other) {
-    Number left(mFloatingPoint);
-    Number right(other.mFloatingPoint);
-    left.fillzero(right);
-    return left.mFloatingPoint.join("") >= right.mFloatingPoint.join("");
-}
-
-bool Vector::Number::operator<= (const Number & other) {
-    Number left(mFloatingPoint);
-    Number right(other.mFloatingPoint);
-    left.fillzero(right);
-    return left.mFloatingPoint.join("") <= right.mFloatingPoint.join("");
-}
-
-bool Vector::Number::operator== (const Number & other) {
-    Number left(mFloatingPoint);
-    Number right(other.mFloatingPoint);
-    left.fillzero(right);
-    return left.mFloatingPoint.join("") == right.mFloatingPoint.join("");
-}
-
-Vector::Number & Vector::Number::operator= (const Number & other) {
-    mFloatingPoint = other.mFloatingPoint;
-    return *this;
-}
-

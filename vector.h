@@ -23,32 +23,6 @@ private:
 
     QSize mSize;
 
-    struct Number {
-        bool mIsPositive;
-        QStringList mFloatingPoint;
-
-        Number(const QString & string) {
-            mFloatingPoint = string.split(".");
-            if (mFloatingPoint.size() < 2) mFloatingPoint << "";
-            normalize();
-        }
-        Number(const QStringList & list) : mFloatingPoint(list) {}
-        QString toString() { return mFloatingPoint.join("."); }
-        int size() { return mFloatingPoint.join("").size(); }
-        const QChar at(int i) { return mFloatingPoint.join("").at(i); }
-        void normalize();
-        void fillzero(Number & other);
-        Number operator- (const Number & other);
-        void clean();
-        void swap(Number & other);
-        bool operator> (const Number & other);
-        bool operator< (const Number & other);
-        bool operator>= (const Number & other);
-        bool operator<= (const Number & other);
-        bool operator== (const Number & other);
-        Number & operator= (const Number & other);
-    };
-
     void iluminatePoints(QByteArray & arr);
     qreal totalMessageLength(QString msg, int fpppos);
     qreal polyLineLength(QStringList & in);
@@ -56,15 +30,11 @@ private:
     QString addToReal(qreal real, int inc, int fppos);
     void preparePolyLine(QStringList & in);
     bool linesNotParallel(QLineF & line, QLineF & nextLine);    
-    QString setEven(QString number, bool isEven, int &direction);
-    QString setEven(QString number, bool isEven);
     QString setDigitAt(QString number, int digit, int pos = 0);
-    bool isEven(double number);
-    bool isEven(QString number);
     int digitAt(QString number, int pos = 0);
-    void setMainLine(QLineF & line, QStringList & in, int & index);
-    QString secretFromLine(int lineNumber, QLineF & mainLine, QStringList & in);
     bool isLineSupported(QStringList & in);
+    bool precisionCorrection(qreal precise, QString & A, QString & B);
+    int computeDifference(qreal precise, qreal a, qreal b);
 };
 
 #endif // VECTOR_H

@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mInit(),
     mCipher(QString("aes128"), QCA::Cipher::CBC, QCA::Cipher::DefaultPadding),
     mScaleFactor(1.0),
-    mIsDebug(true)
+    mIsDebug(false)
 {
     ui->setupUi(this);
 
