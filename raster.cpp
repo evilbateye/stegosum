@@ -8,12 +8,12 @@ Raster::Raster(const QString &name)
     mIsRaster = true;
 }
 
-QPair<QImage, QImage> Raster::scale(float factor) {
+QPair<QImage, QImage> Raster::scaleImgs(float factor) {
     return qMakePair(mSelectionIn[mSelColor].scaled(mSelectionIn[mSelColor].size() * factor, Qt::IgnoreAspectRatio, Qt::FastTransformation),
                  mSelectionOut[mSelColor].scaled(mSelectionOut[mSelColor].size() * factor, Qt::IgnoreAspectRatio, Qt::FastTransformation));
 }
 
-void Raster::setSelected(Utils::Color color) {
+void Raster::setSelectedImgs(Utils::DisplayImageColor color) {
 
     if (color == Utils::COLOR_PREV) color = mSelColor;
 
@@ -32,7 +32,7 @@ void Raster::setSelected(Utils::Color color) {
     }
 }
 
-void Raster::convertToLSB(QImage & image, Utils::Color color) {
+void Raster::convertToLSB(QImage & image, Utils::DisplayImageColor color) {
     for (int j = 0; j < image.height(); j++) {
         for (int i = 0; i < image.width(); i++) {
 
@@ -120,7 +120,7 @@ qint32 Raster::encodeLookAhead(qint32 & start, Variation & variation, ColorPermu
     qint32 oldStart = start;
     resetStats(mStats);
 
-    encodeToPixel(start, pixVect, 2, Utils::colorsObj(true, true, true), 4, NUM_OF_VARIATIONS_BITS, variation.getCode(), NUM_OF_PERMUTATIONS_BITS, permutation.code);
+    encodeToPixel(start, pixVect, 2, Utils::EncodeColorsObj(true, true, true), 4, NUM_OF_VARIATIONS_BITS, variation.getCode(), NUM_OF_PERMUTATIONS_BITS, permutation.code);
 
     while (msgPtr < msgBVect.size()) {
         QRgb * pixel = nextPixel(start, pixVect);
@@ -211,7 +211,7 @@ qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector
 
     int variationCode = 0;
     int permutationCode = 0;
-    decodeFromPixel(start, pixVect, 2, Utils::colorsObj(true, true, true), 4, NUM_OF_VARIATIONS_BITS, &variationCode, NUM_OF_PERMUTATIONS_BITS, &permutationCode);
+    decodeFromPixel(start, pixVect, 2, Utils::EncodeColorsObj(true, true, true), 4, NUM_OF_VARIATIONS_BITS, &variationCode, NUM_OF_PERMUTATIONS_BITS, &permutationCode);
 
     Variation v(6, 3);
     v.setCode(variationCode);
@@ -274,7 +274,7 @@ void Raster::fillPixelVector(QVector<QRgb *> & pixVect, QImage & image)
     }
 }
 
-void Raster::encodeToPixel(QRgb * pixel, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector) {
+void Raster::encodeToPixel(QRgb * pixel, quint8 toHowManyBits, Utils::EncodeColorsObj colors, QVector<bool> & vector) {
     quint8 updatedColors[3];
     updatedColors[0] = qRed(*pixel);
     updatedColors[1] = qGreen(*pixel);
@@ -296,7 +296,7 @@ void Raster::encodeToPixel(QRgb * pixel, quint8 toHowManyBits, Utils::colorsObj 
     *pixel = qRgba(updatedColors[0], updatedColors[1], updatedColors[2], qAlpha(*pixel));
 }
 
-qint32 Raster::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector) {
+qint32 Raster::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, QVector<bool> & vector) {
 
     qint32 numPixels = Utils::pixelsNeeded(vector.size(), colors.numOfselected, toHowManyBits);
 
@@ -309,7 +309,7 @@ qint32 Raster::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 t
     return numPixels;
 }
 
-qint32 Raster::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...) {
+qint32 Raster::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, quint8 numPars, ...) {
     if (numPars % 2) return 0;
 
     numPars = numPars / 2;
@@ -328,7 +328,7 @@ qint32 Raster::encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 t
     return encodeToPixel(start, pixVect, toHowManyBits, colors, vector);
 }
 
-qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...) {
+qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, quint8 numPars, ...) {
     if (numPars % 2) return 0;
 
     numPars = numPars / 2;
@@ -357,7 +357,7 @@ qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8
     return numPixels;
 }
 
-qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, qint32 bitsSum, QVector<bool> & vector) {
+qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, qint32 bitsSum, QVector<bool> & vector) {
 
     qint32 numPixels = Utils::pixelsNeeded(bitsSum, colors.numOfselected, toHowManyBits);
 
@@ -384,7 +384,7 @@ qint32 Raster::decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8
     return numPixels;
 }
 
-void Raster::save(QString &name) {
+void Raster::saveStegoImg(QString &name) {
     mSelectionOut[Utils::COLOR_NONE].save(name);
 }
 
@@ -413,7 +413,7 @@ bool Raster::Encode()
     fillPixelVector(pixVect, mSelectionOut[Utils::COLOR_NONE]);
     qint32 start = pixVect.size() - 1;
 
-    if (!encodeToPixel(start, pixVect, 1, Utils::colorsObj(true, true, true), 12,
+    if (!encodeToPixel(start, pixVect, 1, Utils::EncodeColorsObj(true, true, true), 12,
         1, mColors.rgb[0], 1, mColors.rgb[1], 1, mColors.rgb[2],
         1, mIsLookAhead, 1, mIsCompress, 1, mIsEncrypt)) {
             emit writeToConsole("[Raster] Not enough pixels to encode SETTINGS.\n");
@@ -448,6 +448,11 @@ bool Raster::Encode()
 
         emit writeToConsole(toConsole.join(""));
 
+        //emit writeToStatus("New message length is " + QString::number(sum * 2) + "(" + QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) + "%).\n");
+
+        //FIXME TESTING LOOKAHEAD SECRET MESSAGE CAPACITY
+        //qDebug() << QString::number(mKey) + " & " + QString::number(sum * 2) + " & " + QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) + " \\\\ \\hline";
+
         return true;
     }
 
@@ -472,34 +477,34 @@ bool Raster::Decode()
     bool decodedIsCompress;
     bool decodedIsEncrypt;
 
-    if (!decodeFromPixel(start, pixVect, 1, Utils::colorsObj(true, true, true), 12, 1, &r, 1, &g, 1, &b,
+    if (!decodeFromPixel(start, pixVect, 1, Utils::EncodeColorsObj(true, true, true), 12, 1, &r, 1, &g, 1, &b,
         1, &decodedIsLookAhead, 1, &decodedIsCompress, 1, &decodedIsEncrypt)) {
-            emit writeToConsole("[Decode] Not enough pixels to decode SETTINGS.\n");
+            emit writeToConsole("[Raster] Not enough pixels to decode SETTINGS.\n");
             return false;
     }
 
     mIsEncrypt = decodedIsEncrypt;
 
-    Utils::colorsObj decodedColor(r, g, b);
+    Utils::EncodeColorsObj decodedColor(r, g, b);
     if (!decodedColor.numOfselected) {
-        emit writeToConsole("[Decode] Number of selected colors is 0. Nowhere to decode from.\n");
+        emit writeToConsole("[Raster] Number of selected colors is 0. Nowhere to decode from.\n");
         return false;
     }
 
     qint32 length;
     if (!decodeFromPixel(start, pixVect, 1, decodedColor, 2, NUM_OF_SIZE_BITS, &length)) {
-        emit writeToConsole("[Decode] Not enough pixels to decode LENGTH.\n");
+        emit writeToConsole("[Raster] Not enough pixels to decode LENGTH.\n");
         return false;
     }
 
     QVector<bool> msgBoolVect;
     if (decodedIsLookAhead) {
         if (!decodeLookAhead(start, length * 8, msgBoolVect, pixVect)) {
-            emit writeToConsole("[Decode] Not enough pixels to decode SECRET MESSAGE using LOOKAHEAD.\n");
+            emit writeToConsole("[Raster] Not enough pixels to decode SECRET MESSAGE using LOOKAHEAD.\n");
             return false;
         }
     } else if (!decodeFromPixel(start, pixVect, 1, decodedColor, length * 8, msgBoolVect)) {
-        emit writeToConsole("[Decode] Not enough pixels to decode SECRET MESSAGE.\n");
+        emit writeToConsole("[Raster] Not enough pixels to decode SECRET MESSAGE.\n");
         return false;
     }
 

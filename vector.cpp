@@ -46,7 +46,7 @@ Vector::Vector(const QString &name)
 Vector::~Vector() {
 }
 
-void Vector::setSelected(Utils::Color color) {
+void Vector::setSelectedImgs(Utils::DisplayImageColor color) {
 
     if (color == Utils::COLOR_PREV) color = mSelColor;
 
@@ -65,7 +65,7 @@ void Vector::setSelected(Utils::Color color) {
     }
 }
 
-QPair<QImage, QImage> Vector::get(Utils::Color color) {
+QPair<QImage, QImage> Vector::getImgs(Utils::DisplayImageColor color) {
 
     QBuffer buff;
     QImage in, out;
@@ -81,7 +81,7 @@ QPair<QImage, QImage> Vector::get(Utils::Color color) {
     return qMakePair(in, out);
 }
 
-QPair<QImage, QImage> Vector::scale(float factor) {
+QPair<QImage, QImage> Vector::scaleImgs(float factor) {
     QSvgRenderer r(mSelXmlIn[mSelColor]);
     QPainter p;
     QImage in(mSize * factor, QImage::Format_ARGB32);
@@ -112,7 +112,7 @@ qreal Vector::totalMessageLength(QString msg, int fpppos) {
 
     while (!msg.isEmpty()) {
 
-        length += Stegosum::streamToReal(msg.left(8), fpppos);
+        length += streamToReal(msg.left(8), fpppos);
 
         msg.remove(0, 8);
     }
@@ -162,7 +162,7 @@ bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polyline
                 continue;
             }
 
-            QString digits = Stegosum::digitStream(QString::number(line.length(), 'g', 8).toDouble() + c, fppos);
+            QString digits = digitStream(QString::number(line.length(), 'g', 8).toDouble() + c, fppos);
             msg.append(digits);
             isBreak = true;
             lineStart++;
@@ -191,7 +191,7 @@ int Vector::computeDifference(qreal precise, qreal a, qreal b)
 {
     qreal rounded = QLineF(0, 0, a, b).length();
 
-    return Stegosum::digitStream(precise, mFPPos).toInt() - Stegosum::digitStream(rounded, mFPPos).toInt();
+    return (digitStream(precise, mFPPos).toInt() - digitStream(rounded, mFPPos).toInt());
 }
 
 bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
@@ -203,7 +203,7 @@ bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
 
     if (!dif) return true;
 
-    qreal & tinker = realA < realB ? realA : realB;
+    qreal & tinker = qAbs(realA) < qAbs(realB) ? realA : realB;
 
     while (dif > 0) {
 
@@ -234,8 +234,9 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "aaaaaaaaaaaaaaaaaaaa";
-        mPassword = "";
+        mMsg = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        mPassword = "aaaaaaa";
+        mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
 
     // A little hack to ignore the encrypt checkbox.
@@ -243,10 +244,11 @@ bool Vector::Encode() {
     // to randomly spread out the message in LSB bits,
     // but not use it to encrypt the message. In vector
     // images there is no spread out.
-    if (!mPassword.isEmpty()) {
+    // FIXED not needed anymore
+    /*if (!mPassword.isEmpty()) {
         mIsEncrypt = true;
         mMsg = Utils::encrypt(mMsg, mPassword);
-    }
+    }*/
 
     QDomDocument doc("svgFile");
 
@@ -300,16 +302,31 @@ bool Vector::Encode() {
 
             if (mIsDebug) std::cout << "[E] settings = " << settings << "; ";
 
-            random = qrand() % 10;
+            random = qrand() % 10;            
             settings = random + settings;
             if (settings >= 10) settings = settings - 10;
 
             if (mIsDebug) std::cout << "randomized = " << settings << std::endl;
 
+            //FPPos needs to be randomized before secret message
+            int randomFPP = qrand() % 10;
+
             msgBytesAsString.append(QString::number(settings));
 
+            //FIXME1
+            if (mIsDebug) {
+                std::cout << "[E] ";
+                debugMessage(mMsg);
+            }
+
             for (int i = 0; i < mMsg.size(); i++) {
-                quint8 byte = mMsg[i];
+                int byte = mMsg[i];
+
+                //Randomize message
+                random = qrand() % 1000;
+                byte = random + byte;
+                if (byte >= 1000) byte = byte - 1000;
+
                 QString sbyte = QString::number(byte);
                 QString append = QString(3 - sbyte.size(), '0') + sbyte;
                 msgBytesAsString.append(append);
@@ -350,9 +367,8 @@ bool Vector::Encode() {
                 mFPPos = pointPos;
             }
 
-            // Randomize floating point position info.
-            random = qrand() % 10;
-            int fppos = random + mFPPos;
+            // Randomize floating point position info.            
+            int fppos = randomFPP + mFPPos;
             if (fppos >= 10) fppos = fppos - 10;
 
             //FIXME1
@@ -395,12 +411,18 @@ bool Vector::Encode() {
 
             while (!msgBytesAsString.isEmpty()) {
 
+                if (mIsDebug) {
+                    if (msgBytesAsString.size() <= 45) {
+                        int a = 0;
+                    }
+                }
+
                 // streamToReal function expects the input
                 // to be a string of length 8
                 QString tmpstr = msgBytesAsString.left(8);
                 if (tmpstr.size() < 8) tmpstr.append(QString(8 - tmpstr.size(), '0'));
 
-                c = Stegosum::streamToReal(tmpstr, mFPPos);
+                c = streamToReal(tmpstr, mFPPos);
 
                 csum += c;
 
@@ -412,16 +434,27 @@ bool Vector::Encode() {
 
                     a = QString::number(line.dx() - asum, 'g', 8).toDouble();
                     b = QString::number(line.dy() - bsum, 'g', 8).toDouble();
-                    out[j + encoded] = QString::number(a, 'g', 8) + "," + QString::number(b, 'g', 8);
+
+                    //Precision correction
+                    QString A = QString::number(a, 'g', 8);
+                    QString B = QString::number(b, 'g', 8);
+                    qreal sqrt = QString::number(qSqrt(qPow(A.toDouble(), 2) + qPow(B.toDouble(), 2)), 'g', 8).toDouble();
+
+                    if (!precisionCorrection(sqrt, A, B)) {
+                        emit writeToConsole("[Vector] Precision correction failed.\n");
+                        return false;
+                    }
+                    sqrt = QString::number(qSqrt(qPow(A.toDouble(), 2) + qPow(B.toDouble(), 2)), 'g', 8).toDouble();
+
+                    //out[j + encoded] = QString::number(a, 'g', 8) + "," + QString::number(b, 'g', 8);
+                    out[j + encoded] = A + "," + B;
 
                     // We  encoded only a part of the msg distance,
                     // and we still need to encode the rest after this end point.
-                    msgBytesAsString = msgBytesAsString.mid(8);
-
-                    qreal sqrt = QString::number(qSqrt(qPow(a, 2) + qPow(b, 2)), 'g', 8).toDouble();
+                    msgBytesAsString = msgBytesAsString.mid(8);                    
 
                     QString digits;
-                    digits = Stegosum::digitStream(c - sqrt, mFPPos);
+                    digits = digitStream(c - sqrt, mFPPos);
 
                     msgBytesAsString.prepend(digits);
 
@@ -554,7 +587,7 @@ bool Vector::Decode() {
     if (mIsDebug) std::cout << "msgLen = " << msgLen << std::endl;
 
     if (!msgLen) {
-        emit writeToConsole("[Vector] Decoded length of the secret message is 0. Wrong password and/or the image doesn't containg any secret message.\n");
+        emit writeToConsole("[Vector] Decoded length of the secret message is 0.\n");
         return false;
     }
 
@@ -577,7 +610,7 @@ bool Vector::Decode() {
     while (msgBytesAsString.size() / 3 < msgLen) {
 
         if (nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos)) {
-            emit writeToConsole("[Vector] Decoding failed. Decoded length of the secret message is too big. Image doesn't have a secret message, maybe?\n");
+            emit writeToConsole("[Vector] Decoding failed. Decoded length of the secret message is too big.\n");
             return false;
         }
     }
@@ -593,8 +626,24 @@ bool Vector::Decode() {
     QByteArray msgBytes;
     int size = msgBytesAsString.size() / 3;
     for (int i = 0; i < size; i++) {
-        msgBytes.append(QChar(msgBytesAsString.left(3).toInt()));
+
+        //derandomize message
+        int byte = msgBytesAsString.left(3).toInt();
+        int random = qrand() % 1000;
+        if (byte < random) byte += 1000;
+        byte -= random;
+
+        msgBytes.append(QChar(byte));
+        //msgBytes.append(QChar(msgBytesAsString.left(3).toInt()));
+
         msgBytesAsString = msgBytesAsString.mid(3);
+    }
+
+    if (mIsDebug) {
+        std::cout << "[D] ";
+        debugMessage(msgBytes);
+        qDebug() << "contains:" << QString(msgBytes).contains(QRegExp("[^a]"));
+        qDebug() << "size:" << msgBytes.size();
     }
 
     emit sendMessage(msgBytes, isCompress, isEncrypt);
@@ -602,7 +651,7 @@ bool Vector::Decode() {
     return true;
 }
 
-void Vector::save(QString &name) {
+void Vector::saveStegoImg(QString &name) {
 
     QFile f(name);
 
@@ -772,4 +821,20 @@ int Vector::digitAt(QString number, int pos) {
     QChar digit = mantis.at(mantis.size() - 1 - pos);
 
     return digit.digitValue();
+}
+
+qreal Vector::streamToReal(QString digitStream, int ffpos) {
+    ffpos -= 7;
+    digitStream.prepend(QString(-ffpos + 1, '0'));
+    digitStream.insert(ffpos > 0 ? ffpos : 1, '.');
+    return digitStream.toDouble();
+}
+
+QString Vector::digitStream(qreal number, int fppos) {
+    fppos -= 7;
+    QString numberStr = QString::number(number, 'f', 8 - fppos);
+    numberStr.prepend(QString(fppos - numberStr.split(".").first().size(), '0'));
+    numberStr.remove(QRegExp("\\."));
+    numberStr.remove(0, -(fppos - 1));
+    return numberStr;
 }

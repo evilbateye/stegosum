@@ -30,19 +30,3 @@ void Stegosum::setUp(MainWindow * mw, bool encode, bool isCompress, bool isEncry
 
     mIsDebug = mw->mIsDebug;
 }
-
-qreal Stegosum::streamToReal(QString digitStream, int ffpos) {
-    ffpos -= 7;
-    digitStream.prepend(QString(-ffpos + 1, '0'));
-    digitStream.insert(ffpos > 0 ? ffpos : 1, '.');
-    return digitStream.toDouble();
-}
-
-QString Stegosum::digitStream(qreal number, int fppos) {
-    fppos -= 7;
-    QString numberStr = QString::number(number, 'f', 8 - fppos);
-    numberStr.prepend(QString(fppos - numberStr.split(".").first().size(), '0'));
-    numberStr.remove(QRegExp("\\."));
-    numberStr.remove(0, -(fppos - 1));
-    return numberStr;
-}

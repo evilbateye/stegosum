@@ -77,6 +77,8 @@ private slots:
 
     void slotWriteToConsole(QString string);
 
+    void slotWriteToStatus(QString string);
+
     void on_FPPosSlider_sliderMoved(int position);
 
     void on_checkBoxMaxFPPosition_toggled(bool checked);
@@ -86,23 +88,18 @@ private:
     QString mPassword;
     QString mFileName;
     QString mDataFileName;
-    Stegosum * mStegosum;
-    QProgressBar * mPgBar;
+    Stegosum * mStegosum;    
     QByteArray mSecretBytes;
     QByteArray mUnchangedSecretBytes;
     int mNumWritableChars;
     QCA::Initializer mInit;
-    QCA::Cipher mCipher;
-
     float mScaleFactor;
-    QImage mImg;
-
     QString mAnalysisOutFileName;
-
-    Utils::colorsObj mColors;
+    Utils::EncodeColorsObj mColors;
 
     QMenu * mMenuImage;
     QMenu * mMenuView;
+    QProgressBar * mPgBar;
 
     QAction * actionZoom_In_25;
     QAction * actionZoom_Out_25;

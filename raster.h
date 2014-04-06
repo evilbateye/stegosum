@@ -56,19 +56,19 @@ public:
     Raster(const QString & name);
     bool Encode();
     bool Decode();
-    void save(QString &name);
-    QPair<QImage, QImage> scale(float factor);
-    void setSelected(Utils::Color color);
-    QPair<QImage, QImage> get(Utils::Color color) {
+    void saveStegoImg(QString &name);
+    QPair<QImage, QImage> scaleImgs(float factor);
+    void setSelectedImgs(Utils::DisplayImageColor color);
+    QPair<QImage, QImage> getImgs(Utils::DisplayImageColor color) {
         return qMakePair(mSelectionIn[color], mSelectionOut[color]);
     }
 
 private:
     statsObj mStats[4];
-    QMap<Utils::Color, QImage> mSelectionIn;
-    QMap<Utils::Color, QImage> mSelectionOut;
+    QMap<Utils::DisplayImageColor, QImage> mSelectionIn;
+    QMap<Utils::DisplayImageColor, QImage> mSelectionOut;
 
-    void convertToLSB(QImage & image, Utils::Color color);
+    void convertToLSB(QImage & image, Utils::DisplayImageColor color);
     void numToBits(quint32 msgSize, quint32 shift, QVector<bool> & msgBoolVect);
     void setSeed(QImage & image, quint16 key);
     void fillPixelVector(QVector<QRgb *> & pixVect, QImage & image);
@@ -80,11 +80,11 @@ private:
     qint32 encodeLookAhead(qint32 & start, Variation & variation, ColorPermutation & permutation, QVector<bool> &msgBVect, QVector<QRgb *> & pixVect);
     qint32 decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector<bool> & msgBVect, QVector<QRgb *> & pixVect);
     void moveSequence(QImage & image, quint16 key, qint32 move);
-    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...);
-    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector);
-    void encodeToPixel(QRgb * pixel, quint8 toHowManyBits, Utils::colorsObj colors, QVector<bool> & vector);
-    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, quint8 numPars, ...);
-    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::colorsObj colors, qint32 bitsSum, QVector<bool> & vector);
+    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, quint8 numPars, ...);
+    qint32 encodeToPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, QVector<bool> & vector);
+    void encodeToPixel(QRgb * pixel, quint8 toHowManyBits, Utils::EncodeColorsObj colors, QVector<bool> & vector);
+    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, quint8 numPars, ...);
+    qint32 decodeFromPixel(qint32 & start, QVector<QRgb *> & pixVect, quint8 toHowManyBits, Utils::EncodeColorsObj colors, qint32 bitsSum, QVector<bool> & vector);
 };
 
 #endif // RASTER_H

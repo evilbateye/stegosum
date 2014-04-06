@@ -11,15 +11,17 @@ public:
     ~Vector();
     bool Encode();
     bool Decode();
-    void save(QString &name);
-    QPair<QImage, QImage> scale(float factor);
-    void setSelected(Utils::Color color);
-    QPair<QImage, QImage> get(Utils::Color color);
+    void saveStegoImg(QString &name);
+    QPair<QImage, QImage> scaleImgs(float factor);
+    void setSelectedImgs(Utils::DisplayImageColor color);
+    QPair<QImage, QImage> getImgs(Utils::DisplayImageColor color);
+    static QString digitStream(qreal number, int fppos);
+    static qreal streamToReal(QString digitStream, int ffpos);
 
 private:
 
-    QMap<Utils::Color, QByteArray> mSelXmlIn;
-    QMap<Utils::Color, QByteArray> mSelXmlOut;
+    QMap<Utils::DisplayImageColor, QByteArray> mSelXmlIn;
+    QMap<Utils::DisplayImageColor, QByteArray> mSelXmlOut;
 
     QSize mSize;
 

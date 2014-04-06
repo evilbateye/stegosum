@@ -13,13 +13,13 @@
 class Utils
 {
 public:
-    enum Color {COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_ALL, COLOR_NONE, COLOR_PREV, COLOR_ILUM};
-    struct colorsObj {
+    enum DisplayImageColor {COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_ALL, COLOR_NONE, COLOR_PREV, COLOR_ILUM};
+    struct EncodeColorsObj {
         bool rgb[3];
         quint8 numOfselected;
 
-        colorsObj(bool r, bool g, bool b) { set(r, g, b); }
-        colorsObj() { set(false, false, false); }
+        EncodeColorsObj(bool r, bool g, bool b) { set(r, g, b); }
+        EncodeColorsObj() { set(false, false, false); }
 
         void set(bool r, bool g, bool b) {
             quint8 c = 0;
