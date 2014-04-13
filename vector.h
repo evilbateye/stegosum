@@ -34,7 +34,7 @@ private:
     bool linesNotParallel(QLineF & line, QLineF & nextLine);    
     QString setDigitAt(QString number, int digit, int pos = 0);
     int digitAt(QString number, int pos = 0);
-    bool isLineSupported(QStringList & in);
+    bool isLineSupported(QString path, QStringList &list, QChar &z);
     bool precisionCorrection(qreal precise, QString & A, QString & B);
     int computeDifference(qreal precise, qreal a, qreal b);
 };

@@ -38,46 +38,16 @@ void Raster::convertToLSB(QImage & image, Utils::DisplayImageColor color) {
 
             QRgb * pixel = (&reinterpret_cast<QRgb *>(image.scanLine(j))[i]);
 
-            quint8 red = 0x00;
-            quint8 green = 0x00;
-            quint8 blue = 0x00;
+            quint8 updatedColors[3];
+            updatedColors[0] = qRed(*pixel) & 0x01;
+            updatedColors[1] = qGreen(*pixel) & 0x01;
+            updatedColors[2] = qBlue(*pixel) & 0x01;
 
-            switch (color) {
-                case Utils::COLOR_RED: {
-                    red = qRed(* pixel) & 0x01;
-                    if (red == 0x01) red = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_GREEN: {
-                    green = qGreen(* pixel) & 0x01;
-                    if (green == 0x01) green = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_BLUE: {
-                    blue = qBlue(* pixel) & 0x01;
-                    if (blue == 0x01) blue = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_ALL: {
-                    red = qRed(* pixel) & 0x01;
-                    if (red == 0x01) red = 0xFF;
-
-                    green = qGreen(* pixel) & 0x01;
-                    if (green == 0x01) green = 0xFF;
-
-                    blue = qBlue(* pixel) & 0x01;
-                    if (blue == 0x01) blue = 0xFF;
-                    break;
-                }
-
-                case Utils::COLOR_NONE: break;
-                default: break;
+            for (int i = 0; i < 3; i++) {
+                updatedColors[i] = (updatedColors[i] & ((color >> i) & 0x01)) * 0xFF;
             }
 
-            (* pixel) = qRgba(red, green, blue, 0xFF);
+            (* pixel) = qRgba(updatedColors[0], updatedColors[1], updatedColors[2], 0xFF);
         }
     }
 }

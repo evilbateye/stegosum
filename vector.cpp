@@ -120,16 +120,65 @@ qreal Vector::totalMessageLength(QString msg, int fpppos) {
     return length;
 }
 
-bool Vector::isLineSupported(QStringList & in) {
-    if (in.contains("q", Qt::CaseInsensitive)) return false;
-    if (in.contains("c", Qt::CaseInsensitive)) return false;
-    if (in.contains("s", Qt::CaseInsensitive)) return false;
 
-    if (in.contains("l", Qt::CaseInsensitive)) return false;
-    if (in.contains("h", Qt::CaseInsensitive)) return false;
-    if (in.contains("v", Qt::CaseInsensitive)) return false;
 
-    if (in.contains("z", Qt::CaseInsensitive)) return false;
+bool Vector::isLineSupported(QString path, QStringList & list, QChar & z) {
+
+    if (path[0].toLower() != 'm') return false;
+
+    bool relative = path[0].isLower();
+
+    list.append(QString(path[0]));
+
+    for (int i = 1; i < path.size(); i++) {
+
+        if (path[i] == 'l' && (!relative)) return false;
+        if (path[i] == 'L' && (relative)) return false;
+
+
+        switch (path[i].toLower().toAscii()) {
+            case 'v':
+            case 'h':
+            case 'm':
+            case 'c':
+            case 's':
+            case 'q':
+            case 't':
+            case 'a':
+                return false;
+            case 'z':
+                z = path[i];
+                return true;
+            case ' ':
+                continue;
+        }
+
+        if (path[i].isDigit()) {
+
+            QString xy;
+
+            if (path[i - 1] == '-') xy.append("-");
+
+            while (path[i].isDigit() || path[i] == '.') {
+                xy.append(path[i]);
+                i++;
+            }
+
+            xy.append(",");
+
+            while (!path[i].isDigit()) i++;
+
+            if (path[i - 1] == '-') xy.append("-");
+
+            while (path[i].isDigit() || path[i] == '.') {
+                xy.append(path[i]);
+                i++;
+            }
+
+            list.append(xy);
+            i--;
+        }
+    }
 
     return true;
 }
@@ -148,9 +197,11 @@ bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polyline
 
     for (; polylineStart < nodes.size(); polylineStart++) {
 
-        QStringList in = nodes.at(polylineStart).toElement().attribute("d").split(" ");
+        QChar z;
 
-        if (!isLineSupported(in)) continue;
+        QStringList in;
+
+        if (!isLineSupported(nodes.at(polylineStart).toElement().attribute("d"), in, z)) continue;
 
         for (; lineStart < in.size() - 1; lineStart++) {
 
@@ -271,9 +322,11 @@ bool Vector::Encode() {
 
     for (qint32 i = 0; i < nl.size(); i++) {
 
-        QStringList in = nl.at(i).toElement().attribute("d").split(" ");
+        QChar z;
 
-        if (!isLineSupported(in)) continue;
+        QStringList in;
+
+        if (!isLineSupported(nl.at(i).toElement().attribute("d"), in, z)) continue;
 
         // First polyline's first point adjustment.
         if (firstTime) {
@@ -345,11 +398,14 @@ bool Vector::Encode() {
                 // Get the total sum of all lines lengths.
                 qreal totalLength = 0;
                 for (qint32 i = 0; i < nl.size(); i++) {
-                    QStringList in = nl.at(i).toElement().attribute("d").split(" ");
 
-                    if (!isLineSupported(in)) continue;
+                    QChar tmpZ;
 
-                    totalLength += polyLineLength(in);
+                    QStringList tmpIn;
+
+                    if (!isLineSupported(nl.at(i).toElement().attribute("d"), tmpIn, z)) continue;
+
+                    totalLength += polyLineLength(tmpIn);
                 }
 
                 // Get the max floating point position,
@@ -493,10 +549,12 @@ bool Vector::Encode() {
             line.setP1(line.p2());
         }
 
+        if (!z.isNull()) out.append(QString(z));
+
         nl.at(i).toElement().setAttribute("d", out.join(" "));
 
         if (msgBytesAsString.isEmpty()) break;
-    }
+    }    
 
     if (!msgBytesAsString.isEmpty()) {
         emit writeToConsole("[Vector] Not enough lines to encode secret message.\n");
@@ -549,9 +607,11 @@ bool Vector::Decode() {
     int randomSettings;
     for (qint32 i = 0; i < nl.size(); i++) {
 
-        QStringList in = nl.at(i).toElement().attribute("d").split(" ");
+        QChar z;
 
-        if (!isLineSupported(in)) continue;
+        QStringList in;
+
+        if (!isLineSupported(nl.at(i).toElement().attribute("d"), in, z)) continue;
 
         qsrand(mKey ^ digitStream(in.at(1).split(",").last().toDouble(), 9).toInt());
 
@@ -759,9 +819,12 @@ void Vector::iluminatePoints(QByteArray & arr) {
     QDomElement gelem;
 
     for (int i = 0; i < l.size(); i++) {
-        QStringList in = l.at(i).toElement().attribute("d").split(" ");
 
-        if (!isLineSupported(in)) continue;
+        QChar z;
+
+        QStringList in;
+
+        if (!isLineSupported(l.at(i).toElement().attribute("d"), in, z)) continue;
 
         bool m = in.at(0) == "m";
         QPointF point(in.at(1).split(",").first().toDouble(), in.at(1).split(",").last().toDouble());

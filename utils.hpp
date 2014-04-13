@@ -13,7 +13,7 @@
 class Utils
 {
 public:
-    enum DisplayImageColor {COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_ALL, COLOR_NONE, COLOR_PREV, COLOR_ILUM};
+    enum DisplayImageColor {COLOR_RED = 1, COLOR_GREEN = 2, COLOR_BLUE = 4, COLOR_ALL = 7, COLOR_NONE = 0, COLOR_PREV = -1, COLOR_ILUM = -2};
     struct EncodeColorsObj {
         bool rgb[3];
         quint8 numOfselected;
