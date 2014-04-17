@@ -37,6 +37,10 @@ private:
     bool isLineSupported(QString path, QStringList &list, QChar &z);
     bool precisionCorrection(qreal precise, QString & A, QString & B);
     int computeDifference(qreal precise, qreal a, qreal b);
+    int encodeMessage(QString &arr);
+    void randomizeWord(int enc, QString &arr);
+    void decodeMessage(QByteArray & res, QString msg);
+    void derandomizeWord(QVector<bool> & v, int w, int take = 0);
 };
 
 #endif // VECTOR_H

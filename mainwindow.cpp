@@ -33,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mNumWritableChars(0),
     mInit(),
     mScaleFactor(1.0),
-    mIsDebug(0)
+    mIsDebug(true)
 {
     ui->setupUi(this);
 

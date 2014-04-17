@@ -4,6 +4,10 @@
 #include <QtSvg>
 #include "utils.hpp"
 
+#define BIT_ENCODING 3
+#define BE_MAX_DEC_NUM 9
+#define BE_CIPHERS_COUNT 1
+
 #define NUM_MSG_LEN_NUMS 8
 #define ANGLE_PREC 1
 //#define FLOATING_POINT_POS 9
@@ -276,6 +280,120 @@ bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
     return dif == 0;
 }
 
+void Vector::randomizeWord(int enc, QString & arr)
+{
+    int random = qrand() % (BE_MAX_DEC_NUM + 1);
+    enc += random;
+    if (enc >= (BE_MAX_DEC_NUM + 1)) enc -= (BE_MAX_DEC_NUM + 1);
+
+    //QString tmp = QString::number(enc);
+    //arr.append(QString(BE_CIPHERS_COUNT - tmp.size(), '0') + tmp);
+    arr.append(QString::number(enc));
+}
+
+int Vector::encodeMessage(QString & arr)
+{
+    /*for (int i = 0; i < mMsg.size(); i++) {
+        int byte = mMsg[i];
+
+        //Randomize message
+        random = qrand() % 1000;
+        byte = random + byte;
+        if (byte >= 1000) byte = byte - 1000;
+
+        QString sbyte = QString::number(byte);
+        QString append = QString(3 - sbyte.size(), '0') + sbyte;
+        msgBytesAsString.append(append);
+    }*/
+
+    QVector<bool> vect;
+    for (int i = 0; i < mMsg.size(); i++) {
+        for (int j = 0; j < 8; j++) {
+            vect.push_back((mMsg[i] >> j) & 1);
+        }
+    }
+
+    int res = 0;
+    while (true) {
+        int enc = 0;
+
+        if (res == 99999999) return -1;
+        res++;
+
+        int take = vect.size() >= BIT_ENCODING ? BIT_ENCODING : vect.size();
+        for (int i = 0; i < take; i++) {
+            enc = (enc << 1) | vect.back();
+            vect.pop_back();
+        }
+
+        if (vect.isEmpty()) {
+            randomizeWord(enc, arr);
+            return res;
+        }
+
+        if ((enc | int (qPow(2.0, (double) BIT_ENCODING))) <= BE_MAX_DEC_NUM) {
+            enc = (enc << 1) | vect.back();
+            vect.pop_back();
+        }
+
+        randomizeWord(enc, arr);
+    }
+}
+
+void Vector::derandomizeWord(QVector<bool> & v, int w, int take)
+{
+    int random = qrand() % (BE_MAX_DEC_NUM + 1);
+    if (w < random) w += (BE_MAX_DEC_NUM + 1);
+    w -= random;
+
+    if (!take) take = ((w | int (qPow(2.0, (double) BIT_ENCODING))) > BE_MAX_DEC_NUM) ? BIT_ENCODING : BIT_ENCODING + 1;
+
+    for (int j = take - 1; j >= 0; j--) {
+        v.push_back((w >> j) & 1);
+    }
+}
+
+void Vector::decodeMessage(QByteArray & res, QString msg)
+{
+    /*int size = msgBytesAsString.size() / 3;
+    for (int i = 0; i < size; i++) {
+
+        //derandomize message
+        int byte = msgBytesAsString.left(3).toInt();
+        int random = qrand() % 1000;
+        if (byte < random) byte += 1000;
+        byte -= random;
+
+        msgBytes.append(QChar(byte));
+        //msgBytes.append(QChar(msgBytesAsString.left(3).toInt()));
+
+        msgBytesAsString = msgBytesAsString.mid(3);
+    }*/
+    QVector<bool> vect;
+
+    int n;
+
+    while (msg.size() > BE_CIPHERS_COUNT) {
+        //FIXME
+        n = msg.left(BE_CIPHERS_COUNT).toInt();
+        derandomizeWord(vect, n);
+        msg = msg.mid(BE_CIPHERS_COUNT);
+    }
+
+    //Need to fix the last word
+    n = msg.left(BE_CIPHERS_COUNT).toInt();
+    //Transform last word
+    derandomizeWord(vect, n, (8 - (vect.size() % 8)));
+
+    for (int i = 0; i < vect.size(); i+= 8) {
+        quint8 byte = 0;
+        for (int j = 0; j < 8; j++) {
+            byte = (byte << 1) | vect[i + j];
+        }
+        res.append(byte);
+    }
+}
+
 bool Vector::Encode() {
 
     //FIXME1
@@ -285,8 +403,8 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        mPassword = "aaaaaaa";
+        mMsg = "ab";
+        mPassword = "";
         mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
 
@@ -339,14 +457,9 @@ bool Vector::Encode() {
             // Randomize secret message length for safety
             // (length info isn't encrypted).
             int msgLen;
-            random = qrand() % 100000000;
-            msgLen = random + mMsg.size();
-            if (msgLen >= 100000000) msgLen = msgLen - 100000000;
+            int msgLenRandom = qrand() % 100000000;
 
             if (mIsDebug) std::cout << "[E] mMsg.size() = " << mMsg.size() << "; randomized = " << msgLen << std::endl;
-
-            // And insert as new length for encoding.
-            msgBytesAsString.append(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen));
 
             // Same with settings.
             int settings = 0;
@@ -372,18 +485,16 @@ bool Vector::Encode() {
                 debugMessage(mMsg);
             }
 
-            for (int i = 0; i < mMsg.size(); i++) {
-                int byte = mMsg[i];
+            //This is a bit messy
+            //encode len after message encode
+            //len is the number of ciphers
+            int ciphersEnc = encodeMessage(msgBytesAsString);
+            if (ciphersEnc < 0) emit writeToConsole("[Vector] Message too big. Cannot encode message length.");
 
-                //Randomize message
-                random = qrand() % 1000;
-                byte = random + byte;
-                if (byte >= 1000) byte = byte - 1000;
-
-                QString sbyte = QString::number(byte);
-                QString append = QString(3 - sbyte.size(), '0') + sbyte;
-                msgBytesAsString.append(append);
-            }
+            msgLen = msgLenRandom + ciphersEnc;
+            if (msgLen >= 100000000) msgLen = msgLen - 100000000;
+            // And insert as new length for encoding.
+            msgBytesAsString.prepend(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen));
 
             //FIXME1
             if (mIsDebug) {
@@ -466,12 +577,6 @@ bool Vector::Encode() {
             asum = bsum = csum = 0;
 
             while (!msgBytesAsString.isEmpty()) {
-
-                if (mIsDebug) {
-                    if (msgBytesAsString.size() <= 45) {
-                        int a = 0;
-                    }
-                }
 
                 // streamToReal function expects the input
                 // to be a string of length 8
@@ -667,7 +772,7 @@ bool Vector::Decode() {
     bool isEncrypt = (settings >> 1) & 1;
     msgBytesAsString.remove(0, 1);
 
-    while (msgBytesAsString.size() / 3 < msgLen) {
+    while (msgBytesAsString.size() < msgLen) {
 
         if (nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos)) {
             emit writeToConsole("[Vector] Decoding failed. Decoded length of the secret message is too big.\n");
@@ -675,7 +780,7 @@ bool Vector::Decode() {
         }
     }
 
-    msgBytesAsString.truncate(msgLen * 3);
+    //msgBytesAsString.truncate(msgLen * BE_CIPHERS_COUNT);
 
     //FIXME
     if (mIsDebug) {
@@ -683,21 +788,10 @@ bool Vector::Decode() {
         debugMessage(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen) + QString::number(settings) + msgBytesAsString);
     }
 
+    msgBytesAsString = msgBytesAsString.left(msgLen);
+
     QByteArray msgBytes;
-    int size = msgBytesAsString.size() / 3;
-    for (int i = 0; i < size; i++) {
-
-        //derandomize message
-        int byte = msgBytesAsString.left(3).toInt();
-        int random = qrand() % 1000;
-        if (byte < random) byte += 1000;
-        byte -= random;
-
-        msgBytes.append(QChar(byte));
-        //msgBytes.append(QChar(msgBytesAsString.left(3).toInt()));
-
-        msgBytesAsString = msgBytesAsString.mid(3);
-    }
+    decodeMessage(msgBytes, msgBytesAsString);
 
     if (mIsDebug) {
         std::cout << "[D] ";
