@@ -1,8 +1,13 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#define BIT_ENCODING 63
+#define BE_MAX_DEC_NUM 9999999999999999999ull
+#define BE_CIPHERS_COUNT 19
+
 #include "stegosum.h"
 #include <QDomDocument>
+#include <cmath>
 
 class Vector : public Stegosum
 {
@@ -38,9 +43,24 @@ private:
     bool precisionCorrection(qreal precise, QString & A, QString & B);
     int computeDifference(qreal precise, qreal a, qreal b);
     int encodeMessage(QString &arr);
-    void randomizeWord(int enc, QString &arr);
+    void randomizeWord(quint64 enc, QString &arr, int ciphersC = BE_CIPHERS_COUNT, quint64 maxDec = BE_MAX_DEC_NUM);
     void decodeMessage(QByteArray & res, QString msg);
-    void derandomizeWord(QVector<bool> & v, int w, int take = 0);
+    void derandomizeWord(QVector<bool> & v, quint64 w, int take = 0, int bits = BIT_ENCODING, quint64 maxDec = BE_MAX_DEC_NUM);
+    int numberOfCiphers(int bits) { return floor(log10((1ull << bits) - 1)) + 1; }
+    quint64 power(int base, int exp) {
+        quint64 r = 1;
+        for (int i = 0; i < exp; i++) r *= base;
+        return r;
+    }
+    quint64 maximumDecadicNumber(int ciphC) { return power(10, ciphC) - 1; }
+    int removeZeros(QVector<bool> & v);
+    int minimumBitsCount(quint64 n) {
+        int bits = 1;
+        for (int i = 1; i < 64; i++) {
+            if ((n >> i) & 1) bits = i + 1;
+        }
+        return bits;
+    }
 };
 
 #endif // VECTOR_H

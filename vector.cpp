@@ -4,10 +4,6 @@
 #include <QtSvg>
 #include "utils.hpp"
 
-#define BIT_ENCODING 3
-#define BE_MAX_DEC_NUM 9
-#define BE_CIPHERS_COUNT 1
-
 #define NUM_MSG_LEN_NUMS 8
 #define ANGLE_PREC 1
 //#define FLOATING_POINT_POS 9
@@ -280,15 +276,26 @@ bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
     return dif == 0;
 }
 
-void Vector::randomizeWord(int enc, QString & arr)
+int Vector::removeZeros(QVector<bool> & v)
 {
-    int random = qrand() % (BE_MAX_DEC_NUM + 1);
-    enc += random;
-    if (enc >= (BE_MAX_DEC_NUM + 1)) enc -= (BE_MAX_DEC_NUM + 1);
+    int size = v.size() - 1;
 
-    //QString tmp = QString::number(enc);
-    //arr.append(QString(BE_CIPHERS_COUNT - tmp.size(), '0') + tmp);
-    arr.append(QString::number(enc));
+    int i = 0;
+    for (; i < size; i++) {
+        if (v.front()) break;
+        v.pop_front();
+    }
+    return i;
+}
+
+void Vector::randomizeWord(quint64 enc, QString & arr, int ciphersC, quint64 maxDec)
+{
+    quint64 random = qrand() % (maxDec + 1);
+    enc += random;
+    if (enc >= (maxDec + 1)) enc -= (maxDec + 1);
+
+    QString tmp = QString::number(enc);
+    arr.append(QString(ciphersC - tmp.size(), '0') + tmp);
 }
 
 int Vector::encodeMessage(QString & arr)
@@ -315,41 +322,67 @@ int Vector::encodeMessage(QString & arr)
 
     int res = 0;
     while (true) {
-        int enc = 0;
 
-        if (res == 99999999) return -1;
-        res++;
+        quint64 enc = 0;
+        quint64 maxDec;
+        int cip, nz;
 
-        int take = vect.size() >= BIT_ENCODING ? BIT_ENCODING : vect.size();
-        for (int i = 0; i < take; i++) {
-            enc = (enc << 1) | vect.back();
-            vect.pop_back();
+        int take = 1;
+        if (vect.size() > BIT_ENCODING) {
+            take = BIT_ENCODING;
+            res += BE_CIPHERS_COUNT;
+        } else {
+
+            nz = (vect.size() - 1) / 8;
+            removeZeros(vect);
+
+            cip = numberOfCiphers(vect.size());
+            maxDec = maximumDecadicNumber(cip);
+
+            take = vect.size();
+            res += cip;
         }
+
+        for (int i = take - 1; i >= 0; i--) enc = (enc << 1) | *(vect.end() - 1 - i);
+        vect.erase(vect.end() - take, vect.end());
 
         if (vect.isEmpty()) {
-            randomizeWord(enc, arr);
-            return res;
+            randomizeWord(nz, arr, 1, 9);
+            randomizeWord(enc, arr, cip, maxDec);
+            return res + 1/*nz*/;
         }
 
-        if ((enc | int (qPow(2.0, (double) BIT_ENCODING))) <= BE_MAX_DEC_NUM) {
-            enc = (enc << 1) | vect.back();
+        quint64 pow = (1ull << BIT_ENCODING);
+        if ((enc | pow) <= BE_MAX_DEC_NUM) {
+            enc |= pow * vect.back();
             vect.pop_back();
+            take++;
+        }
+
+
+        if (vect.isEmpty()) {
+            nz = (take - 1) / 8;
+            randomizeWord(nz, arr, 1, 9);
+            randomizeWord(enc, arr);
+            return res + 1/*nz*/;
         }
 
         randomizeWord(enc, arr);
     }
+
+    return res;
 }
 
-void Vector::derandomizeWord(QVector<bool> & v, int w, int take)
+void Vector::derandomizeWord(QVector<bool> & v, quint64 w, int take, int bits, quint64 maxDec)
 {
-    int random = qrand() % (BE_MAX_DEC_NUM + 1);
-    if (w < random) w += (BE_MAX_DEC_NUM + 1);
+    quint64 random = qrand() % (maxDec + 1);
+    if (w < random) w += (maxDec + 1);
     w -= random;
 
-    if (!take) take = ((w | int (qPow(2.0, (double) BIT_ENCODING))) > BE_MAX_DEC_NUM) ? BIT_ENCODING : BIT_ENCODING + 1;
+    if (!take) take = ((w | (1ull << bits)) > maxDec) ? bits : bits + 1;
 
-    for (int j = take - 1; j >= 0; j--) {
-        v.push_back((w >> j) & 1);
+    for (int j = 0; j < take; j++) {
+        v.push_front((w >> j) & 1);
     }
 }
 
@@ -371,24 +404,32 @@ void Vector::decodeMessage(QByteArray & res, QString msg)
     }*/
     QVector<bool> vect;
 
-    int n;
+    quint64 n, nMaxDec;
+    int nMinBitsC;
 
-    while (msg.size() > BE_CIPHERS_COUNT) {
-        //FIXME
-        n = msg.left(BE_CIPHERS_COUNT).toInt();
+    while (msg.size() > BE_CIPHERS_COUNT + 1) {
+        n = msg.left(BE_CIPHERS_COUNT).toULongLong();
         derandomizeWord(vect, n);
         msg = msg.mid(BE_CIPHERS_COUNT);
     }
 
     //Need to fix the last word
-    n = msg.left(BE_CIPHERS_COUNT).toInt();
+    n = msg.mid(1).toULongLong();
+    nMaxDec = maximumDecadicNumber(msg.mid(1).size());
+    nMinBitsC = minimumBitsCount(n);
+
+    int nz = msg.left(1).toInt();
+    int random = qrand() % 10;
+    if (nz < random) nz += 10;
+    nz -= random;
+
     //Transform last word
-    derandomizeWord(vect, n, (8 - (vect.size() % 8)));
+    derandomizeWord(vect, n, (8 - (vect.size() % 8) + 8 * nz), nMinBitsC, nMaxDec);
 
     for (int i = 0; i < vect.size(); i+= 8) {
         quint8 byte = 0;
         for (int j = 0; j < 8; j++) {
-            byte = (byte << 1) | vect[i + j];
+            byte |= (1 << j) * vect[i + j];
         }
         res.append(byte);
     }
@@ -403,7 +444,7 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "ab";
+        mMsg = "kde bolo tam bolo bola raz jedna vesela jahodka a kazdy ju mal velmi rad, okrem petra korena, on mal k veselej jahodke neutralny vztah";
         mPassword = "";
         mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
@@ -489,7 +530,7 @@ bool Vector::Encode() {
             //encode len after message encode
             //len is the number of ciphers
             int ciphersEnc = encodeMessage(msgBytesAsString);
-            if (ciphersEnc < 0) emit writeToConsole("[Vector] Message too big. Cannot encode message length.");
+            if (ciphersEnc > 99999999) emit writeToConsole("[Vector] Message too big. Cannot encode message length.");
 
             msgLen = msgLenRandom + ciphersEnc;
             if (msgLen >= 100000000) msgLen = msgLen - 100000000;
@@ -794,8 +835,7 @@ bool Vector::Decode() {
     decodeMessage(msgBytes, msgBytesAsString);
 
     if (mIsDebug) {
-        std::cout << "[D] ";
-        debugMessage(msgBytes);
+        std::cout << "[D] " << QString(msgBytes).toStdString() << std::endl;;
         qDebug() << "contains:" << QString(msgBytes).contains(QRegExp("[^a]"));
         qDebug() << "size:" << msgBytes.size();
     }

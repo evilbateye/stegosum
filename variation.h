@@ -7,8 +7,8 @@ private:
     int mN;
     int mK;
     int mCode;
-    int mTotalVariations;
     int * mVariation;
+    int mTotalVariations;
 public:
     Variation(int n, int k);
     Variation(Variation & v);
