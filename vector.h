@@ -45,8 +45,8 @@ private:
     int encodeMessage(QString &arr);
     void randomizeWord(quint64 enc, QString &arr, int ciphersC = BE_CIPHERS_COUNT, quint64 maxDec = BE_MAX_DEC_NUM);
     void decodeMessage(QByteArray & res, QString msg);
-    void derandomizeWord(QVector<bool> & v, quint64 w, int take = 0, int bits = BIT_ENCODING, quint64 maxDec = BE_MAX_DEC_NUM);
-    int numberOfCiphers(int bits) { return floor(log10((1ull << bits) - 1)) + 1; }
+    void derandomizeWord(QVector<bool> & v, quint64 w, int take = 0, quint64 maxDec = BE_MAX_DEC_NUM, int bits = BIT_ENCODING);
+    int numberOfCiphers(int bits) { return  floor(log10(((1ull << bits) - 1))) + 1; }
     quint64 power(int base, int exp) {
         quint64 r = 1;
         for (int i = 0; i < exp; i++) r *= base;

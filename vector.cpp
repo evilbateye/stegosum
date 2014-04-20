@@ -362,9 +362,13 @@ int Vector::encodeMessage(QString & arr)
 
         if (vect.isEmpty()) {
             nz = (take - 1) / 8;
+            cip = numberOfCiphers(minimumBitsCount(enc));
+            cip = cip >= 20 ? 19 : cip;
+            maxDec = maximumDecadicNumber(cip);
+
             randomizeWord(nz, arr, 1, 9);
-            randomizeWord(enc, arr);
-            return res + 1/*nz*/;
+            randomizeWord(enc, arr, cip, maxDec);
+            return res - 19 + cip + 1/*nz*/;
         }
 
         randomizeWord(enc, arr);
@@ -373,7 +377,7 @@ int Vector::encodeMessage(QString & arr)
     return res;
 }
 
-void Vector::derandomizeWord(QVector<bool> & v, quint64 w, int take, int bits, quint64 maxDec)
+void Vector::derandomizeWord(QVector<bool> & v, quint64 w, int take, quint64 maxDec, int bits)
 {
     quint64 random = qrand() % (maxDec + 1);
     if (w < random) w += (maxDec + 1);
@@ -405,7 +409,6 @@ void Vector::decodeMessage(QByteArray & res, QString msg)
     QVector<bool> vect;
 
     quint64 n, nMaxDec;
-    int nMinBitsC;
 
     while (msg.size() > BE_CIPHERS_COUNT + 1) {
         n = msg.left(BE_CIPHERS_COUNT).toULongLong();
@@ -416,7 +419,6 @@ void Vector::decodeMessage(QByteArray & res, QString msg)
     //Need to fix the last word
     n = msg.mid(1).toULongLong();
     nMaxDec = maximumDecadicNumber(msg.mid(1).size());
-    nMinBitsC = minimumBitsCount(n);
 
     int nz = msg.left(1).toInt();
     int random = qrand() % 10;
@@ -424,7 +426,7 @@ void Vector::decodeMessage(QByteArray & res, QString msg)
     nz -= random;
 
     //Transform last word
-    derandomizeWord(vect, n, (8 - (vect.size() % 8) + 8 * nz), nMinBitsC, nMaxDec);
+    derandomizeWord(vect, n, (8 - (vect.size() % 8) + 8 * nz), nMaxDec);
 
     for (int i = 0; i < vect.size(); i+= 8) {
         quint8 byte = 0;
@@ -444,7 +446,7 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "kde bolo tam bolo bola raz jedna vesela jahodka a kazdy ju mal velmi rad, okrem petra korena, on mal k veselej jahodke neutralny vztah";
+        mMsg = "aaaaaaaaaaaaaaa";
         mPassword = "";
         mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
