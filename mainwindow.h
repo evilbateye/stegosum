@@ -23,6 +23,17 @@ namespace Ui {
     class MainWindow;
 }
 
+//! Trieda MainWindow reprezentuje hlavné okno aplikácie.
+/*!
+Trieda MainWindow, ktorá reprezentuje hlavné okno aplikácie, obsahuje najviac
+jednu inštanciu tried Stegosum, Analysis a EncodeColorsObj a využíva pomocné
+funkcie z triedy Utils. MainWindow ďalej obsahuje potrebné členské premenné pre
+uchovanie tajnej správy, hesla pre šifrovanie a randomizáciu tajnej správy, informácie
+pre prácu s krycím obrázkom, informácie pre prácu s tajnou správou vo forme
+súboru, metadáta pre kódovanie a dekódovanie tajnej správy (kapacita obrázka, zvolené
+farby kódovania) a zobrazovacie prostriedky potrebné pre vizuálnu steganalýzu
+(vizuálna steganalýza je prepojená s gui prvkami triedy MainWindow).
+*/
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -85,16 +96,27 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    //! Predstavuje heslo, ktoré vloží používateľ do daného textového poľa.
     QString mPassword;
+    //! Predstavuje cestu na disku k načítanému kryciemu obrázku.
     QString mFileName;
+    //! Cesta k tajnej správe vo forme súboru na načítanie.
     QString mDataFileName;
-    Stegosum * mStegosum;    
+    //! Smerník na inštanciu triedy stegosum.
+    Stegosum * mStegosum;
+    //! Predstavuje dáta tajnej správy vo forme poľa bajtov.
     QByteArray mSecretBytes;
+    //! Slúži na odpamätanie nepozmenenej tajnej správy.
     QByteArray mUnchangedSecretBytes;
+    //! Označuje kapacitu obrázka ako celkový počet znakov, ktoré je možné zakódovať do obrázka.
     int mNumWritableChars;
+    //! Inštancia triedy QCA::Initializer a je nevyhnutné, aby nezanikla po celý čas využívania knižnice QCA.
     QCA::Initializer mInit;
+    //! Využíva sa pri vyzuálnej steganalýze, konkrétne pri približovaní alebo vzďaľovaní krycieho obrázka alebo stegoobrázka.
     float mScaleFactor;
+    //! Meno výstupného súboru pre steganalýzu.
     QString mAnalysisOutFileName;
+    //! Je inštanciou triedy EncodeColorsObject.
     Utils::EncodeColorsObj mColors;
 
     QMenu * mMenuImage;

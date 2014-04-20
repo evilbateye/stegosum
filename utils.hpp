@@ -10,9 +10,15 @@
 #define NUM_OF_VARIATIONS_BITS 8
 #define NUM_OF_PERMUTATIONS_BITS 3
 
+//! Pomocná trieda obsahujúca konštanty a statické funkcie.
+/*!
+Utils obsahuje statické konštanty a pomocné funkcie, ktoré
+sú potrebné v rôznych častiach aplikácie.
+*/
 class Utils
 {
 public:
+    //! Enum obsahujúci typy modifikácií nad stegoobrázkom a krycím obrázkom v rámci vizuálnej steganalýzy.
     enum DisplayImageColor {COLOR_RED = 1, COLOR_GREEN = 2, COLOR_BLUE = 4, COLOR_ALL = 7, COLOR_NONE = 0, COLOR_PREV = -1, COLOR_ILUM = -2};
     struct EncodeColorsObj {
         bool rgb[3];

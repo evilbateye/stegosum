@@ -1,5 +1,6 @@
 #include "raster.h"
 
+
 Raster::Raster(const QString &name)
 {
     mSelectionIn[Utils::COLOR_NONE].load(name);

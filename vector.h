@@ -9,6 +9,13 @@
 #include <QDomDocument>
 #include <cmath>
 
+//! Modul zabezpečuje vkladanie tajnej správy do vektorových obrázkov.
+/*!
+Modul pre vektorovú grafiku sa špecifikuje na prácu s vektorovými obrázkami, kon-
+krétne na obrázky typu svg. Modul pre vektorovú grafiku obsahuje potrebné členské
+premenné pre uchovanie informácií o posunutí desatinnej čiarky pri kódovaní tajnej
+správy a príznak pre výpočet maximálneho povoleného posunutia desatinnej čiarky.
+ */
 class Vector : public Stegosum
 {
 public:
