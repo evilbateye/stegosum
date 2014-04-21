@@ -1,6 +1,6 @@
+#include <iostream>
 #include "variation.h"
 #include "qmath.h"
-#include <iostream>
 
 Variation::Variation(int n, int k) : mN(n), mK(k), mCode(0) {
     mVariation = new int[k];
@@ -47,14 +47,6 @@ bool Variation::next() {
     }
 
     return true;
-}
-
-int Variation::getCode() {
-    return mCode;
-}
-
-int * Variation::getVariation() {
-    return mVariation;
 }
 
 void Variation::setCode(int code) {

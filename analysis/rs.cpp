@@ -1,8 +1,7 @@
 #include <QImage>
-
-#include "rs.h"
 #include <QtCore/qmath.h>
 #include <QDebug>
+#include "rs.h"
 
 int RS::mMask[2][RS::mM * RS::mN] = {
     {1, 0, 0, 1},

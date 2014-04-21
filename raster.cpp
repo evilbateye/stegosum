@@ -77,9 +77,9 @@ quint32 Raster::bitsToNum(qint32 numBitsCount, QVector<bool> & msgBoolVect)
 }
 
 QRgb * Raster::nextPixel(qint32 & start, QVector<QRgb *> & pixVect) {
-    if (start < SUFFLEEOFFSET) return 0;
+    if (start < Utils::SUFFLEEOFFSET) return 0;
 
-    quint32 pos = qrand() % (start + 1 - SUFFLEEOFFSET) + SUFFLEEOFFSET;
+    quint32 pos = qrand() % (start + 1 - Utils::SUFFLEEOFFSET) + Utils::SUFFLEEOFFSET;
     QRgb * pixel = pixVect[pos];
     qSwap(pixVect[start--], pixVect[pos]);
     return pixel;
@@ -91,7 +91,7 @@ qint32 Raster::encodeLookAhead(qint32 & start, Variation & variation, ColorPermu
     qint32 oldStart = start;
     resetStats(mStats);
 
-    encodeToPixel(start, pixVect, 2, Utils::EncodeColorsObj(true, true, true), 4, NUM_OF_VARIATIONS_BITS, variation.getCode(), NUM_OF_PERMUTATIONS_BITS, permutation.code);
+    encodeToPixel(start, pixVect, 2, Utils::EncodeColorsObj(true, true, true), 4, Utils::NUM_OF_VARIATIONS_BITS, variation.getCode(), Utils::NUM_OF_PERMUTATIONS_BITS, permutation.code);
 
     while (msgPtr < msgBVect.size()) {
         QRgb * pixel = nextPixel(start, pixVect);
@@ -182,7 +182,7 @@ qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector
 
     int variationCode = 0;
     int permutationCode = 0;
-    decodeFromPixel(start, pixVect, 2, Utils::EncodeColorsObj(true, true, true), 4, NUM_OF_VARIATIONS_BITS, &variationCode, NUM_OF_PERMUTATIONS_BITS, &permutationCode);
+    decodeFromPixel(start, pixVect, 2, Utils::EncodeColorsObj(true, true, true), 4, Utils::NUM_OF_VARIATIONS_BITS, &variationCode, Utils::NUM_OF_PERMUTATIONS_BITS, &permutationCode);
 
     Variation v(6, 3);
     v.setCode(variationCode);
@@ -361,12 +361,6 @@ void Raster::saveStegoImg(QString &name) {
 
 bool Raster::Encode()
 {
-    /*QImage simg("/home/evilbateye/Pictures/1318099542371.png");
-    QByteArray msgBytes;
-    QBuffer buffer(&msgBytes);
-    buffer.open(QIODevice::WriteOnly);
-    qDebug()<<simg.save(&buffer, "PNG");*/
-
     mSelectionOut[Utils::COLOR_NONE] = mSelectionIn[Utils::COLOR_NONE];
     mSelectionOut[Utils::COLOR_RED] = QImage();
     mSelectionOut[Utils::COLOR_GREEN] = QImage();
@@ -391,7 +385,7 @@ bool Raster::Encode()
             return false;
     }
 
-    if (!encodeToPixel(start, pixVect, 1, mColors, 2, NUM_OF_SIZE_BITS, mMsg.size())) {
+    if (!encodeToPixel(start, pixVect, 1, mColors, 2, Utils::NUM_OF_SIZE_BITS, mMsg.size())) {
         emit writeToConsole("[Raster] Not enough pixels to encode LENGTH.\n");
         return false;
     }
@@ -418,8 +412,6 @@ bool Raster::Encode()
         toConsole << "[Raster] New message length is " << QString::number(sum * 2) << "(" << QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) << "%).\n";
 
         emit writeToConsole(toConsole.join(""));
-
-        //emit writeToStatus("New message length is " + QString::number(sum * 2) + "(" + QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) + "%).\n");
 
         //FIXME TESTING LOOKAHEAD SECRET MESSAGE CAPACITY
         //qDebug() << QString::number(mKey) + " & " + QString::number(sum * 2) + " & " + QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) + " \\\\ \\hline";
@@ -463,7 +455,7 @@ bool Raster::Decode()
     }
 
     qint32 length;
-    if (!decodeFromPixel(start, pixVect, 1, decodedColor, 2, NUM_OF_SIZE_BITS, &length)) {
+    if (!decodeFromPixel(start, pixVect, 1, decodedColor, 2, Utils::NUM_OF_SIZE_BITS, &length)) {
         emit writeToConsole("[Raster] Not enough pixels to decode LENGTH.\n");
         return false;
     }
@@ -494,8 +486,6 @@ bool Raster::Decode()
     decoBytes.append(temp);
 
     emit sendMessage(decoBytes, decodedIsCompress, decodedIsEncrypt);
-
-    //FIXME qchecksum
 
     return true;
 }

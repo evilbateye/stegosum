@@ -1,18 +1,6 @@
-//TO DO LIST
-/*
-  zoom in zoom out scrollbar na okno s obrazkom
-  percento zmeny - porovnat obrazky
-  steganalyza - ciastocna znalost spravy, porovnat s inymi programamy, aj casovo
-  help
-  zobrazit zakodovane bity?
-  progressbar!
-  posli obrazok do threadu ako referenciu, ale pozor nesmie sa menit v hlavnom vlakne
-  maximalne sa da dat sprava velkosti 2^21, nemas osetrene
-  moznost kodovania aj inych typov suborov
-  options
-  help
-  */
-
+#include <QImageReader>
+#include <QImageWriter>
+#include <QtSvg>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "analysis/samplepairs.h"
@@ -22,11 +10,6 @@
 #include "vector.h"
 #include "variation.h"
 
-#include <QImageReader>
-#include <QImageWriter>
-#include <QtSvg>
-
-
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
@@ -34,13 +17,12 @@ MainWindow::MainWindow(QWidget *parent) :
     mNumWritableChars(0),
     mInit(),
     mScaleFactor(1.0),
-    mIsDebug(true)
+    mIsDebug(false)
 {
     ui->setupUi(this);
 
     mPgBar = new QProgressBar(this);
     mPgBar->setVisible(false);
-    //ui->statusBar->addPermanentWidget(mPgBar);
 
     connect(ui->secretMsgView, SIGNAL(textChanged()), this, SLOT(secretMsgTextChangedHandler()));
     connect(ui->compressSlider, SIGNAL(valueChanged(int)), this, SLOT(compressSliderChangedHandler(int)));
@@ -90,34 +72,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ImageStegoView, SIGNAL(mousePressedAndMoved(QPoint)), this, SLOT(slotImgMoveTool(QPoint)));
     //-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//-----//
 
-
-
-//    connect(ui->ImageView, SIGNAL(clicked()), this, SLOT(on_test_slot()));
-
-    //ui->openDataButton->setVisible(false);
-
-    /*testcode*/
-    /*mImg.load("/home/evilbateye/Pictures/evilbateye2.png");
-    //ui->secretMsgView->setPlainText("01234567");
-
-    mImg.load("/home/evilbateye/Pictures/evilbateye.png");
-    ui->secretMsgView->setPlainText("b");
-
-    ui->ImageView->setPixmap(QPixmap::fromImage(mImg));
-    ui->encodeButton->setEnabled(true);
-    ui->decodeButton->setEnabled(true);
-
-    ui->compressSlider->setEnabled(true);
-    ui->encodeMaxCheckBox->setEnabled(true);
-    ui->encryptCheckBox->setEnabled(true);
-
-    ui->encodeMaxCheckBox->setChecked(true);
-    ui->encryptCheckBox->setChecked(false);
-    ui->compressSlider->setValue(0);*/
-
-//    openImage("/home/evilbateye/Pictures/Yoh_Asakura_by_ghettorob21.png");
-//    mViewStegoPixmap.convertFromImage(QImage::load("/home/evilbateye/Pictures/Yohs_secret.png"));
-
     //FIXME1
     if (mIsDebug) {
         ui->stackedWidget->setCurrentIndex(2);
@@ -138,13 +92,6 @@ void MainWindow::adjustMyScrollBars()
 void MainWindow::slotOnlyLSBNormal(bool checked)
 {
     if (!checked) return;
-
-//    resetImages(Utils::COLOR_NONE);
-//    adjustMySize(mModifiedImg, ui->ImageView);
-//    if (!mModifiedStego.isNull()) {
-//        adjustMySize(mModifiedStego, ui->ImageStegoView);
-//        adjustMyScrollBars();
-//    }
 
     mStegosum->setSelectedImgs(Utils::COLOR_NONE);
 
@@ -168,11 +115,6 @@ void MainWindow::slotOnlyLSBAll(bool checked)
 {
     if (!checked) return;
 
-//    if (resetImages(Utils::COLOR_ALL)) {
-//        if (convertToLSB(mModifiedImg, Utils::COLOR_ALL, ui->ImageView)) mLastModified = Utils::COLOR_ALL;
-//        if (convertToLSB(mModifiedStego, Utils::COLOR_ALL, ui->ImageStegoView)) adjustMyScrollBars();
-//    }
-
     mStegosum->setSelectedImgs(Utils::COLOR_ALL);
 
     QPair<QImage, QImage> pair = mStegosum->scaleImgs(mScaleFactor);
@@ -194,11 +136,6 @@ void MainWindow::slotOnlyLSBAll(bool checked)
 void MainWindow::slotOnlyLSBBlue(bool checked)
 {
     if (!checked) return;
-
-//    if (resetImages(Utils::COLOR_BLUE)) {
-//        if (convertToLSB(mModifiedImg, Utils::COLOR_BLUE, ui->ImageView)) mLastModified = Utils::COLOR_BLUE;
-//        if (convertToLSB(mModifiedStego, Utils::COLOR_BLUE, ui->ImageStegoView)) adjustMyScrollBars();
-//    }
 
     mStegosum->setSelectedImgs(Utils::COLOR_BLUE);
 
@@ -222,11 +159,6 @@ void MainWindow::slotOnlyLSBGreen(bool checked)
 {
     if (!checked) return;
 
-//    if (resetImages(Utils::COLOR_GREEN)) {
-//        if (convertToLSB(mModifiedImg, Utils::COLOR_GREEN, ui->ImageView)) mLastModified = Utils::COLOR_GREEN;
-//        if (convertToLSB(mModifiedStego, Utils::COLOR_GREEN, ui->ImageStegoView)) adjustMyScrollBars();
-//    }
-
     mStegosum->setSelectedImgs(Utils::COLOR_GREEN);
 
     QPair<QImage, QImage> pair = mStegosum->scaleImgs(mScaleFactor);
@@ -249,10 +181,6 @@ void MainWindow::slotOnlyLSBRed(bool checked)
 {
     if (!checked) return;
 
-//    if (resetImages(Utils::COLOR_RED)){
-//        if (convertToLSB(mModifiedImg, Utils::COLOR_RED, ui->ImageView)) mLastModified = Utils::COLOR_RED;
-//        if (convertToLSB(mModifiedStego, Utils::COLOR_RED, ui->ImageStegoView)) adjustMyScrollBars();
-//    }
     mStegosum->setSelectedImgs(Utils::COLOR_RED);
 
     QPair<QImage, QImage> pair = mStegosum->scaleImgs(mScaleFactor);
@@ -454,16 +382,11 @@ void MainWindow::scaleImage(float factor)
     mScaleFactor *= factor;
     ui->statusBar->showMessage(QString().sprintf("Zoom %.0f%%", mScaleFactor * 100), 2000);
 
-    //QSize size = mScaleFactor * mModifiedImg.size();
-    //QSize size = mScaleFactor * (mStegosum->in()->size());
-
     QPair<QImage, QImage> pair = mStegosum->scaleImgs(mScaleFactor);
 
-    //tmp.convertFromImage(mModifiedImg.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation));
     tmp.convertFromImage(pair.first);
     ui->ImageView->setPixmap(tmp);
 
-    //if (tmps.convertFromImage(mModifiedStego.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation)))
     if (tmps.convertFromImage(pair.second))
         ui->ImageStegoView->setPixmap(tmps);
 }
@@ -513,7 +436,7 @@ void MainWindow::setNumMax()
 {
     mColors.set(ui->red_radio->isChecked(), ui->green_radio->isChecked(), ui->blue_radio->isChecked());
 
-    mNumWritableChars = ((mStegosum->getImgs().first.width() * mStegosum->getImgs().first.height() - SUFFLEEOFFSET - NUM_OF_SETTINGS_PIXELS - Utils::pixelsNeeded(NUM_OF_SIZE_BITS, mColors.numOfselected)) * mColors.numOfselected) / 8 ;
+    mNumWritableChars = ((mStegosum->getImgs().first.width() * mStegosum->getImgs().first.height() - Utils::SUFFLEEOFFSET - Utils::NUM_OF_SETTINGS_PIXELS - Utils::pixelsNeeded(Utils::NUM_OF_SIZE_BITS, mColors.numOfselected)) * mColors.numOfselected) / 8 ;
 }
 
 

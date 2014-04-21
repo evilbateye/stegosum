@@ -2,7 +2,6 @@
 #include <QColor>
 #include <QtCore/qmath.h>
 #include <QDebug>
-
 #include "samplepairs.h"
 
 SamplePairs::SamplePairs()

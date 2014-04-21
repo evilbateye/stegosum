@@ -1,15 +1,8 @@
 #include <QLineF>
-
-#include "vector.h"
 #include <QtSvg>
-#include "utils.hpp"
-
-#define NUM_MSG_LEN_NUMS 8
-#define ANGLE_PREC 1
-//#define FLOATING_POINT_POS 9
-#define SHOW_POINTS_W_AND_H 5
-
 #include <iostream>
+#include "vector.h"
+#include "utils.hpp"
 
 void debugMessage(QString msg) {
 
@@ -300,19 +293,6 @@ void Vector::randomizeWord(quint64 enc, QString & arr, int ciphersC, quint64 max
 
 int Vector::encodeMessage(QString & arr)
 {
-    /*for (int i = 0; i < mMsg.size(); i++) {
-        int byte = mMsg[i];
-
-        //Randomize message
-        random = qrand() % 1000;
-        byte = random + byte;
-        if (byte >= 1000) byte = byte - 1000;
-
-        QString sbyte = QString::number(byte);
-        QString append = QString(3 - sbyte.size(), '0') + sbyte;
-        msgBytesAsString.append(append);
-    }*/
-
     QVector<bool> vect;
     for (int i = 0; i < mMsg.size(); i++) {
         for (int j = 0; j < 8; j++) {
@@ -328,9 +308,9 @@ int Vector::encodeMessage(QString & arr)
         int cip, nz;
 
         int take = 1;
-        if (vect.size() > BIT_ENCODING) {
-            take = BIT_ENCODING;
-            res += BE_CIPHERS_COUNT;
+        if (vect.size() > Utils::BIT_ENCODING) {
+            take = Utils::BIT_ENCODING;
+            res += Utils::BE_CIPHERS_COUNT;
         } else {
 
             nz = (vect.size() - 1) / 8;
@@ -352,8 +332,8 @@ int Vector::encodeMessage(QString & arr)
             return res + 1/*nz*/;
         }
 
-        quint64 pow = (1ull << BIT_ENCODING);
-        if ((enc | pow) <= BE_MAX_DEC_NUM) {
+        quint64 pow = (1ull << Utils::BIT_ENCODING);
+        if ((enc | pow) <= Utils::BE_MAX_DEC_NUM) {
             enc |= pow * vect.back();
             vect.pop_back();
             take++;
@@ -392,28 +372,14 @@ void Vector::derandomizeWord(QVector<bool> & v, quint64 w, int take, quint64 max
 
 void Vector::decodeMessage(QByteArray & res, QString msg)
 {
-    /*int size = msgBytesAsString.size() / 3;
-    for (int i = 0; i < size; i++) {
-
-        //derandomize message
-        int byte = msgBytesAsString.left(3).toInt();
-        int random = qrand() % 1000;
-        if (byte < random) byte += 1000;
-        byte -= random;
-
-        msgBytes.append(QChar(byte));
-        //msgBytes.append(QChar(msgBytesAsString.left(3).toInt()));
-
-        msgBytesAsString = msgBytesAsString.mid(3);
-    }*/
     QVector<bool> vect;
 
     quint64 n, nMaxDec;
 
-    while (msg.size() > BE_CIPHERS_COUNT + 1) {
-        n = msg.left(BE_CIPHERS_COUNT).toULongLong();
+    while (msg.size() > Utils::BE_CIPHERS_COUNT + 1) {
+        n = msg.left(Utils::BE_CIPHERS_COUNT).toULongLong();
         derandomizeWord(vect, n);
-        msg = msg.mid(BE_CIPHERS_COUNT);
+        msg = msg.mid(Utils::BE_CIPHERS_COUNT);
     }
 
     //Need to fix the last word
@@ -451,19 +417,7 @@ bool Vector::Encode() {
         mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
 
-    // A little hack to ignore the encrypt checkbox.
-    // In raster images we can choose to use a password
-    // to randomly spread out the message in LSB bits,
-    // but not use it to encrypt the message. In vector
-    // images there is no spread out.
-    // FIXED not needed anymore
-    /*if (!mPassword.isEmpty()) {
-        mIsEncrypt = true;
-        mMsg = Utils::encrypt(mMsg, mPassword);
-    }*/
-
     QDomDocument doc("svgFile");
-
 
     if (mSelXmlIn[Utils::COLOR_NONE].isEmpty()) {
         emit writeToConsole("[Vector] Cannot open input vector image for encoding.\n");
@@ -537,7 +491,7 @@ bool Vector::Encode() {
             msgLen = msgLenRandom + ciphersEnc;
             if (msgLen >= 100000000) msgLen = msgLen - 100000000;
             // And insert as new length for encoding.
-            msgBytesAsString.prepend(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen));
+            msgBytesAsString.prepend(QString(Utils::NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen));
 
             //FIXME1
             if (mIsDebug) {
@@ -823,12 +777,10 @@ bool Vector::Decode() {
         }
     }
 
-    //msgBytesAsString.truncate(msgLen * BE_CIPHERS_COUNT);
-
     //FIXME
     if (mIsDebug) {
         std::cout << "[D] ";
-        debugMessage(QString(NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen) + QString::number(settings) + msgBytesAsString);
+        debugMessage(QString(Utils::NUM_MSG_LEN_NUMS - QString::number(msgLen).size(), '0') + QString::number(msgLen) + QString::number(settings) + msgBytesAsString);
     }
 
     msgBytesAsString = msgBytesAsString.left(msgLen);
@@ -867,9 +819,9 @@ bool Vector::linesNotParallel(QLineF & line, QLineF & nextLine) {
 
     qreal angle = line.angleTo(nextLine);
 
-    if (angle > ANGLE_PREC) angle = 360 - angle;
+    if (angle > Utils::ANGLE_PREC) angle = 360 - angle;
 
-    return angle > ANGLE_PREC;
+    return angle > Utils::ANGLE_PREC;
 }
 
 qreal Vector::polyLineLength(QStringList & in) {
@@ -968,10 +920,10 @@ void Vector::iluminatePoints(QByteArray & arr) {
         elem = d.createElement("rect");
         elem.setAttribute("style", "fill:#ff0000;stroke:#B3B3B3;stroke-opacity:1;stroke-width:1");
         elem.setAttribute("id", "rect0");
-        elem.setAttribute("width", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-        elem.setAttribute("height", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-        elem.setAttribute("x", QString::number(point.x() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
-        elem.setAttribute("y", QString::number(point.y() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
+        elem.setAttribute("width", QString::number(Utils::SHOW_POINTS_W_AND_H, 'g', 1));
+        elem.setAttribute("height", QString::number(Utils::SHOW_POINTS_W_AND_H, 'g', 1));
+        elem.setAttribute("x", QString::number(point.x() - Utils::SHOW_POINTS_W_AND_H / 2, 'g', 8));
+        elem.setAttribute("y", QString::number(point.y() - Utils::SHOW_POINTS_W_AND_H / 2, 'g', 8));
 
         gelem = l.at(i).parentNode().toElement();
         gelem.appendChild(elem);
@@ -986,10 +938,10 @@ void Vector::iluminatePoints(QByteArray & arr) {
             elem = d.createElement("rect");
             elem.setAttribute("style", "fill:#ff0000;stroke:#B3B3B3;stroke-opacity:1;stroke-width:1");
             elem.setAttribute("id", "rect0");
-            elem.setAttribute("width", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-            elem.setAttribute("height", QString::number(SHOW_POINTS_W_AND_H, 'g', 1));
-            elem.setAttribute("x", QString::number(point.x() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
-            elem.setAttribute("y", QString::number(point.y() - SHOW_POINTS_W_AND_H / 2, 'g', 8));
+            elem.setAttribute("width", QString::number(Utils::SHOW_POINTS_W_AND_H, 'g', 1));
+            elem.setAttribute("height", QString::number(Utils::SHOW_POINTS_W_AND_H, 'g', 1));
+            elem.setAttribute("x", QString::number(point.x() - Utils::SHOW_POINTS_W_AND_H / 2, 'g', 8));
+            elem.setAttribute("y", QString::number(point.y() - Utils::SHOW_POINTS_W_AND_H / 2, 'g', 8));
 
             gelem.appendChild(elem);
         }

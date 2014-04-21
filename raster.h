@@ -5,14 +5,15 @@
 #include "variation.h"
 #include <iostream>
 
-//! Modul zabezpečuje vkladanie tajnej správy do rastrových obrázkov.
 /*!
-Modul pre rastrovú grafiku dedí od modulu Stegosum a slúži na prácu s rastrovými
-obrázkami, konkrétne obrázkami typu BMP a PNG. Modul pre rastrovú grafiku
-obsahuje potrebné členské premenné pre uchovanie informácie o zvolených farbách
-pixelov (do ktorých sa má kódovať tajná správa) a informácie potrebné pre dopredný
-algoritmus vkladania.
-*/
+ * \brief Modul zabezpečuje vkladanie tajnej správy do rastrových obrázkov.
+ *
+ *  Modul pre rastrovú grafiku dedí od modulu Stegosum a slúži na prácu s rastrovými
+ *  obrázkami, konkrétne obrázkami typu BMP a PNG. Modul pre rastrovú grafiku
+ *  obsahuje potrebné členské premenné pre uchovanie informácie o zvolených farbách
+ *  pixelov (do ktorých sa má kódovať tajná správa) a informácie potrebné pre dopredný
+ *  algoritmus vkladania.
+ */
 class Raster : public Stegosum
 {
 private:
@@ -49,9 +50,7 @@ private:
          *  vygenerovaná pomocou funkcie next.
          */
         int code;
-        /*!
-         * \brief Pole troch čísel predstavujúce farebnú permutáciu.
-         */
+        //! Pole troch čísel predstavujúce farebnú permutáciu.
         int permutation[3];
 
         ColorPermutation() {

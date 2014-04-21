@@ -14,32 +14,35 @@
 
 class MainWindow;
 
-//! Abstraktná trieda, od ktorej dedia moduly kódujúce tajnú správu do rôznych krycích médií.
 /*!
-Modul Stegosum je daný abstraktnou triedou, ktorá presne definuje potrebné pod-
-mienky, ktoré musia spĺňať všetky ďalšie moduly, ktoré od neho dedia. Tie budú
-pribúdať s narastajúcou podporou pre rôzne druhy krycích obrázkov. Modul Stego-
-sum ďalej obsahuje potrebné členské premenné pre uchovanie príznaku kódovania,
-kompresie, šifrovania a sprievodné informácie potrebné pre vizuálnu steganalýzu (vi-
-zuálna steganalýza je prepojená s triedou Stegosum, ktorá poskytuje informácie o
-pozmenenom stegoobrázku).
-*/
+ * \brief Abstraktná trieda, od ktorej dedia moduly kódujúce tajnú správu do rôznych krycích médií.
+ *
+ *  Modul Stegosum je daný abstraktnou triedou, ktorá presne definuje potrebné podmienky,
+ *  ktoré musia spĺňať všetky ďalšie moduly, ktoré od neho dedia. Tie budúpribúdať
+ *  s narastajúcou podporou pre rôzne druhy krycích obrázkov. Modul Stegosum
+ *  ďalej obsahuje potrebné členské premenné pre uchovanie príznaku kódovania,
+ *  kompresie, šifrovania a sprievodné informácie potrebné pre vizuálnu steganalýzu
+ *  (vizuálna steganalýza je prepojená s triedou Stegosum, ktorá poskytuje informácie o
+ *  pozmenenom stegoobrázku).
+ */
 class Stegosum : public QThread
 {
     Q_OBJECT
 public:
     explicit Stegosum(QWidget *parent = 0);
-    //! Metóda spúšťa vlákno vykonávajúce steganografiu.
     /*!
-    Metóda sa rozhodne na základe príznaku mEncode a následne spustí vo vlákne kódovaciu alebo dekódovaciu funkciu.
-    */
+     * \brief Metóda spúšťa vlákno vykonávajúce steganografiu.
+     *
+     *  Metóda sa rozhodne na základe príznaku mEncode a následne
+     *  spustí vo vlákne kódovaciu alebo dekódovaciu funkciu.
+     */
     void run();
-    //! Kódovacia funkcia.
     /*!
-    \return Vracia true alebo false podľa úspešnosti funkcie.
-
-    Slúži na zakódovanie tajnej správy do krycieho média.
-    */
+     * \brief Kódovacia funkcia.
+     * \return Vracia true alebo false podľa úspešnosti funkcie.
+     *
+     *  Slúži na zakódovanie tajnej správy do krycieho média.
+     */
     virtual bool Encode() = 0;
     /*!
      * \brief Dekódovacia funkcia.
@@ -98,16 +101,35 @@ public:
     inline bool isEncode() { return mEncode; }    
 
 signals:
-    void succes(bool succ);
     void updateProgress(int value);
     void setMaximum(int value);
+    /*!
+     * \brief Signál, ktorý sa spustí po tom, čo vlákno s kódovacou alebo dekódovacou funkciou ukončí svoju činnosť.
+     * \param succ True ak kódovanie alebo dekódovanie prebehlo úspešne, false v opačnom prípade.
+     */
+    void succes(bool succ);
+    /*!
+     * \brief Signál, ktorý sa spustí po tom, čo vlákno s dekódovacou funkciou ukončí svoju činnosť.
+     * \param message dekódovaná tajná správa
+     * \param compressed dekódovaný príznak kompresie
+     * \param encrypted dekódovaný príznak šifrovania
+     */
     void sendMessage(QByteArray message, bool compressed, bool encrypted);
+    /*!
+     * \brief Signál, ktorý sa spustí, ak je nutné vypísať do konzoly oznam alebo chhybové hlásenie.
+     * \param string oznam alebo chybové hlásenie
+     */
     void writeToConsole(QString string);
+    /*!
+     * \brief Signál, ktorý sa spustí, ak je nutné vypísať do status baru oznam alebo chhybové hlásenie.
+     * \param string oznam alebo chybové hlásenie
+     */
     void writeToStatus(QString string);
 
 public slots:
 
 protected:
+    bool mIsDebug;
     //! Referencia na tajnú správu vo forme poľa bajtov.
     QByteArray mMsg;
     //! Jedinečné číslo pre inicializáciu pseudonáhodného generátora čisel získané z hesla zadaného používateľom.
@@ -128,7 +150,6 @@ protected:
     int mFPPos;
     //! Je príznak pre výpočet maximálneho posunu desatinnej čiarky.
     bool mIsFPPosMax;
-    bool mIsDebug;
     //! Je príznak, ktorý oznamuje či je objekt triedy Stegosum typu Raster alebo Vektor.
     bool mIsRaster;
     //! Aktuálne vybratá modifikácia stegoobrázka a krycieho obrázka pre vizuálnu steganalýzu.

@@ -1,5 +1,5 @@
-#include "secretmsgtextedit.h"
 #include <QKeyEvent>
+#include "secretmsgtextedit.h"
 
 secretMsgTextEdit::secretMsgTextEdit(QWidget *parent) :
     QPlainTextEdit(parent)

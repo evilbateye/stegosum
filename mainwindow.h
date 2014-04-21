@@ -23,17 +23,18 @@ namespace Ui {
     class MainWindow;
 }
 
-//! Trieda MainWindow reprezentuje hlavné okno aplikácie.
 /*!
-Trieda MainWindow, ktorá reprezentuje hlavné okno aplikácie, obsahuje najviac
-jednu inštanciu tried Stegosum, Analysis a EncodeColorsObj a využíva pomocné
-funkcie z triedy Utils. MainWindow ďalej obsahuje potrebné členské premenné pre
-uchovanie tajnej správy, hesla pre šifrovanie a randomizáciu tajnej správy, informácie
-pre prácu s krycím obrázkom, informácie pre prácu s tajnou správou vo forme
-súboru, metadáta pre kódovanie a dekódovanie tajnej správy (kapacita obrázka, zvolené
-farby kódovania) a zobrazovacie prostriedky potrebné pre vizuálnu steganalýzu
-(vizuálna steganalýza je prepojená s gui prvkami triedy MainWindow).
-*/
+ * \brief Trieda MainWindow reprezentuje hlavné okno aplikácie.
+ *
+ *  Trieda MainWindow, ktorá reprezentuje hlavné okno aplikácie, obsahuje najviac
+ *  jednu inštanciu tried Stegosum, Analysis a EncodeColorsObj a využíva pomocné
+ *  funkcie z triedy Utils. MainWindow ďalej obsahuje potrebné členské premenné pre
+ *  uchovanie tajnej správy, hesla pre šifrovanie a randomizáciu tajnej správy, informácie
+ *  pre prácu s krycím obrázkom, informácie pre prácu s tajnou správou vo forme
+ *  súboru, metadáta pre kódovanie a dekódovanie tajnej správy (kapacita obrázka, zvolené
+ *  farby kódovania) a zobrazovacie prostriedky potrebné pre vizuálnu steganalýzu
+ *  (vizuálna steganalýza je prepojená s gui prvkami triedy MainWindow).
+ */
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -131,11 +132,25 @@ private:
 
     bool mIsDebug;
 
+    //! Metóda zobrazí do status baru aktuálnu veľkosť správy v bajtoch a v prípade ak je to možné aj maximálnu kapacitu krycieho obrázka.
     void updateStatusBar();
+    //! Metóda nastavuje maximálnu kapacitu krycieho obrázka.
     void setNumMax();
+    /*!
+     * \brief Metóda sa zavolá v prípade, ak používateľ otvorí nový krycí obrázok.
+     * \param name cesta k obrázku
+     *
+     *  Metóda vykonáva potrebné sprievodné akcie spojené s načítaním obrázka,
+     *  ako napr. vymazanie objektu Stegosum a vytvorenie nového na základe typu
+     *  obrázka, prepočítanie kapacity obrázka, atď.
+     */
     void openImage(QString name);
-
+    /*!
+     * \brief Metóda zväčší (zmenší) krycí obrázok a stegoobrázok a zobrazí ich v zobrazovacích oknách.
+     * \param factor faktor zväčšenia (zmenšenia) obrázkov
+     */
     void scaleImage(float factor);
+    //! Funkcia sa zavolá hneď po zobrazení stegoobrázka a nastavý jeho scrollbary na rovnaké, aké má krycí obrázok.
     void adjustMyScrollBars();
 
     friend class Stegosum;

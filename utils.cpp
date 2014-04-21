@@ -1,5 +1,5 @@
-#include "utils.hpp"
 #include <QtCrypto/QtCrypto>
+#include "utils.hpp"
 
 Utils::Utils()
 {
