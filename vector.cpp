@@ -412,8 +412,8 @@ bool Vector::Encode() {
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "aaaaaaaaaaaaaaa";
-        mPassword = "";
+        mMsg = "ahoj som vesela jahodka tralal";
+        mPassword = "abc";
         mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
 
@@ -952,15 +952,16 @@ void Vector::iluminatePoints(QByteArray & arr) {
 
 QString Vector::setDigitAt(QString number, int digit, int pos) {
 
-    QString mantis = number.split(QRegExp("[eE]")).first();
+    QStringList l = number.split(QRegExp("[eE]"));
+    QString mantis = l.first();
 
     mantis.append(QString(9 - mantis.size(), '0'));
 
     pos = mantis.size() - 1 - pos;
 
-    number.replace(pos, 1, QString::number(digit).at(0));
+    mantis.replace(pos, 1, QString::number(digit).at(0));
 
-    return number;
+    return mantis + (l.size() > 1 ? l.last() : "");
 }
 
 int Vector::digitAt(QString number, int pos) {

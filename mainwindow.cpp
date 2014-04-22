@@ -755,19 +755,21 @@ void MainWindow::on_actionEncode_triggered()
     ui->decodeButton->setEnabled(false);
 
     //FIXME TESTING LOOKAHEAD SECRET MESSAGE CAPACITY
-    /*QString alphabet = "abcdefghijklmnopqrstuvwxyz";
+//    QString alphabet = "abcdefghijklmnopqrstuvwxyz";
 
-    mSecretBytes = "a";
-    //mSecretBytes = QByteArray(1, ch.toAscii());
-    mColors.set(true, true, true);
+//    mSecretBytes = "220414";
+//    //mSecretBytes = QByteArray(1, ch.toAscii());
+//    mColors.set(true, true, true);
 
-    Stegosum * sum;
-    foreach(const QChar ch, alphabet) {
-        mPassword = ch;
-        sum = new Raster("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/kitty_.png");
-        sum->setUp(this, true, false, false, true, 0, false);
-        sum->start();
-    }*/
+//    Stegosum * sum;
+//    foreach(const QChar ch1, alphabet) {
+//        foreach(const QChar ch2, alphabet) {
+//            mPassword = QString(ch1) + ch2;
+//            sum = new Raster("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/kitty_.png");
+//            sum->setUp(this, true, false, false, true, 0, false);
+//            sum->start();
+//        }
+//    }
 
     mStegosum->setUp(this, true, (ui->compressSlider->value()) ? true : false,
                  ui->encryptCheckBox->isChecked(),

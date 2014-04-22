@@ -106,17 +106,27 @@ qint32 Raster::encodeLookAhead(qint32 & start, Variation & variation, ColorPermu
         for (quint8 j = 0; j < 3; j++) {
             quint8 lookAhead = updatedColors[permutation.permutation[j]] >> 2;
 
-            qint8 perColor;
+            qint32 perColor, index;
             for (perColor = 0; perColor < 3; perColor++) {
-                qint32 index = msgPtr + perPixel + perColor;
+                index = msgPtr + perPixel + perColor;
                 if (index >= msgBVect.size()) break;
                 if (msgBVect[index] != ((lookAhead >> (variation.getVariation())[perColor]) & 0x01)) break;
             }
-            setStats(mStats, perColor, j);
 
-            perPixel += perColor;
+            // If less than 2 bits match,
+            // encode next msg bit in LSB
+            if (perColor < 2) {
+                perColor = msgBVect[index - perColor];
+                setStats(mStats, 1, j);
+                perPixel += 1;
+            } else {
+                setStats(mStats, perColor, j);
+                perPixel += perColor;
+            }
 
             updatedColors[permutation.permutation[j]] = (updatedColors[permutation.permutation[j]] & 0xFC) | perColor;
+
+            if (msgPtr + perPixel >= msgBVect.size()) break;
         }
 
         msgPtr += perPixel;
@@ -200,8 +210,12 @@ qint32 Raster::decodeLookAhead(qint32 & start, qint32 numOfBitsToDecode, QVector
         updatedColors[2] = qBlue(*pixel);
 
         for (quint8 j = 0; j < 3; j++) {
-            for (quint8 k = 0; k < (updatedColors[p.permutation[j]] & 0x03); k++) {
-                msgBVect.push_back((updatedColors[p.permutation[j]] >> (2 + (v.getVariation())[k])) & 0x01);
+            quint8 last2bits = (updatedColors[p.permutation[j]] & 0x03);
+            if (last2bits < 2) {
+                // When the second bit (from right) is 0, the message bit is in the LSB
+                msgBVect.push_back(last2bits);
+            } else {
+                for (quint8 k = 0; k < last2bits; k++) msgBVect.push_back((updatedColors[p.permutation[j]] >> (2 + (v.getVariation())[k])) & 0x01);
             }
         }
     }
@@ -414,7 +428,7 @@ bool Raster::Encode()
         emit writeToConsole(toConsole.join(""));
 
         //FIXME TESTING LOOKAHEAD SECRET MESSAGE CAPACITY
-        //qDebug() << QString::number(mKey) + " & " + QString::number(sum * 2) + " & " + QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) + " \\\\ \\hline";
+//        qDebug() << QString::number(mKey) + " & " + QString::number(sum * 2) + " & " + QString::number((100 * (sum * 2)) / (mMsg.size() * 8)) + " \\\\ \\hline";
 
         return true;
     }
