@@ -128,17 +128,19 @@ private:
      * \param precise požadovaná dĺžka prepony
      * \param A dĺžka prvej odvesny
      * \param B dĺžka druhej odvesny
+     * \param fppos posunutie desatinnej čiarky
      * \return Vracia true, ak sa podarilo modifikovať odvesny takým spôsobom, aby mala prepona požadovanú hodnotu, inak vracia false.
      */
-    bool precisionCorrection(qreal precise, QString & A, QString & B);
+    bool precisionCorrection(qreal precise, QString & A, QString & B, int fppos = -1);
     /*!
      * \brief Metóda vracia rozdiel medzi požadovanou dĺžkou prepony a dĺžkou získanou z odvesien a, b.
      * \param precise požadovaná dĺžka prepony
      * \param a dĺžka prvej odvesny
      * \param b dĺžka druhej odvesny
+     * \param fppos posunutie desatinnej čiarky
      * \return Vracia rozdiel medzi požadovanou dĺžkou prepony a dĺžkou získanou z odvesien a, b.
      */
-    int computeDifference(qreal precise, qreal a, qreal b);
+    int computeDifference(qreal precise, qreal a, qreal b, int fppos = -1);
     /*!
      * \brief Metóda premieňa tajnú správu vo forme poľa bajtov na reťazec desiatkových číslic.
      * \param arr reťazec číslic, ktorý sa naplní pozmenenou správou
@@ -209,6 +211,8 @@ private:
         }
         return bits;
     }
+
+    int getFloatingPointPosition(qreal fp);
 };
 
 #endif // VECTOR_H

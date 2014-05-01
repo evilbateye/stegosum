@@ -498,6 +498,7 @@ bool Raster::Decode()
         }
     }
     decoBytes.append(temp);
+    decoBytes.truncate(length);
 
     emit sendMessage(decoBytes, decodedIsCompress, decodedIsEncrypt);
 

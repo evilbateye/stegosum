@@ -128,7 +128,6 @@ bool Vector::isLineSupported(QString path, QStringList & list, QChar & z) {
         if (path[i] == 'l' && (!relative)) return false;
         if (path[i] == 'L' && (relative)) return false;
 
-
         switch (path[i].toLower().toAscii()) {
             case 'v':
             case 'h':
@@ -157,6 +156,21 @@ bool Vector::isLineSupported(QString path, QStringList & list, QChar & z) {
                 i++;
             }
 
+            if (path[i].toLower() == 'e') {
+                xy.append(path[i]);
+                i++;
+
+                if (path[i] == '-') {
+                    xy.append("-");
+                    i++;
+                }
+
+                while (path[i].isDigit() || path[i] == '.') {
+                    xy.append(path[i]);
+                    i++;
+                }
+            }
+
             xy.append(",");
 
             while (!path[i].isDigit()) i++;
@@ -166,6 +180,21 @@ bool Vector::isLineSupported(QString path, QStringList & list, QChar & z) {
             while (path[i].isDigit() || path[i] == '.') {
                 xy.append(path[i]);
                 i++;
+            }
+
+            if (path[i].toLower() == 'e') {
+                xy.append(path[i]);
+                i++;
+
+                if (path[i] == '-') {
+                    xy.append("-");
+                    i++;
+                }
+
+                while (path[i].isDigit() || path[i] == '.') {
+                    xy.append(path[i]);
+                    i++;
+                }
             }
 
             list.append(xy);
@@ -231,19 +260,23 @@ bool Vector::nextPointSecret(QDomNodeList & nodes, QString & msg, int & polyline
     return false;
 }
 
-int Vector::computeDifference(qreal precise, qreal a, qreal b)
+int Vector::computeDifference(qreal precise, qreal a, qreal b, int fppos)
 {
+    if (fppos == -1) fppos = mFPPos;
+
     qreal rounded = QLineF(0, 0, a, b).length();
 
-    return (digitStream(precise, mFPPos).toInt() - digitStream(rounded, mFPPos).toInt());
+    return (digitStream(precise, fppos).toInt() - digitStream(rounded, fppos).toInt());
 }
 
-bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
+bool Vector::precisionCorrection(qreal precise, QString & A, QString & B, int fppos)
 {
+    if (fppos == -1) fppos = mFPPos;
+
     qreal realA = A.toDouble();
     qreal realB = B.toDouble();
 
-    int dif = computeDifference(precise, realA, realB);
+    int dif = computeDifference(precise, realA, realB, fppos);
 
     if (!dif) return true;
 
@@ -251,16 +284,16 @@ bool Vector::precisionCorrection(qreal precise, QString & A, QString & B)
 
     while (dif > 0) {
 
-        tinker = addToReal(tinker, 1, mFPPos).toDouble();
+        tinker = addToReal(tinker, 1, fppos).toDouble();
 
-        dif = computeDifference(precise, realA, realB);
+        dif = computeDifference(precise, realA, realB, fppos);
     }
 
     while (dif < 0) {
 
-        tinker = addToReal(tinker, -1, mFPPos).toDouble();
+        tinker = addToReal(tinker, -1, fppos).toDouble();
 
-        dif = computeDifference(precise, realA, realB);
+        dif = computeDifference(precise, realA, realB, fppos);
     }
 
     A = QString::number(realA, 'g', 8);
@@ -339,7 +372,6 @@ int Vector::encodeMessage(QString & arr)
             take++;
         }
 
-
         if (vect.isEmpty()) {
             nz = (take - 1) / 8;
             cip = numberOfCiphers(minimumBitsCount(enc));
@@ -368,6 +400,23 @@ void Vector::derandomizeWord(QVector<bool> & v, quint64 w, int take, quint64 max
     for (int j = 0; j < take; j++) {
         v.push_front((w >> j) & 1);
     }
+}
+
+int Vector::getFloatingPointPosition(qreal fp) {
+    int ret = 7;
+    if (fp >= 1) {
+        while (fp >= 1) {
+            fp /= 10;
+            ret++;
+        }
+        return ret;
+    }
+    fp *= 10;
+    while (fp < 1) {
+        fp *= 10;
+        ret--;
+    }
+    return ret;
 }
 
 void Vector::decodeMessage(QByteArray & res, QString msg)
@@ -408,12 +457,12 @@ bool Vector::Encode() {
     //FIXME1
     if (mIsDebug) {
         QFile file;
-        file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/drawing.svg");
+        file.setFileName("/home/evilbateye/develop/CD/stegosum-build-desktop-Qt_4_8_3_in_PATH__System__Release/happy_face_teeth.svg");
         file.open(QFile::ReadOnly);
         mSelXmlIn[Utils::COLOR_NONE] = file.readAll();
         file.close();
-        mMsg = "ahoj som vesela jahodka tralal";
-        mPassword = "abc";
+        mMsg = "123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela 123 ahoj 456 som 789 vesela";
+        mPassword = "";
         mKey = qChecksum(mPassword.toStdString().c_str(), mPassword.size());
     }
 
@@ -434,6 +483,16 @@ bool Vector::Encode() {
     QString msgBytesAsString;
 
     bool firstTime = true;
+
+    // Correct the inaccuracy
+    // which develops from draging
+    // the message word through multiple lines
+    qreal corrsum, corrc, corrmin;
+    corrsum = corrc = 0;
+    bool corrbeg = true;
+    QString corrminA, corrminB;
+    QStringList corrout;
+    int corri;
 
     for (qint32 i = 0; i < nl.size(); i++) {
 
@@ -581,6 +640,18 @@ bool Vector::Encode() {
                 if (tmpstr.size() < 8) tmpstr.append(QString(8 - tmpstr.size(), '0'));
 
                 c = streamToReal(tmpstr, mFPPos);
+                if (corrbeg) {
+                    // Correct the inaccuracy
+                    // which develops from draging
+                    // the message word through multiple lines
+
+                    corri = -1;
+                    corrc = c;
+                    corrsum = 0.0;
+                    corrbeg = false;
+                    corrmin = 99999999;
+                    corrout.clear();
+                }
 
                 csum += c;
 
@@ -604,8 +675,19 @@ bool Vector::Encode() {
                     }
                     sqrt = QString::number(qSqrt(qPow(A.toDouble(), 2) + qPow(B.toDouble(), 2)), 'g', 8).toDouble();
 
-                    //out[j + encoded] = QString::number(a, 'g', 8) + "," + QString::number(b, 'g', 8);
                     out[j + encoded] = A + "," + B;
+
+                    // Correct the inaccuracy
+                    // which develops from draging
+                    // the message word through multiple lines
+                    if (sqrt < corrmin) {
+                        corrmin = sqrt;
+                        corrminA = A;
+                        corrminB = B;
+                        corri = i;
+                        corrout = out;
+                    }
+                    corrsum += sqrt;
 
                     // We  encoded only a part of the msg distance,
                     // and we still need to encode the rest after this end point.
@@ -632,6 +714,23 @@ bool Vector::Encode() {
                     return false;
                 }
 
+                // Correct the inaccuracy
+                // which develops from draging
+                // the message word through multiple lines
+                corrbeg = true;
+                corrsum += QString::number(qSqrt(qPow(A.toDouble(), 2) + qPow(B.toDouble(), 2)), 'g', 8).toDouble();
+                corrsum = QString::number(corrsum, 'g', 8).toDouble();
+                int corrdif = digitStream(corrc, mFPPos).toInt() - digitStream(corrsum, mFPPos).toInt();
+                if (corrdif) {
+                    int corrfpp = getFloatingPointPosition(corrmin);
+                    corrmin = addToReal(corrmin, corrdif, corrfpp).toDouble();
+                    precisionCorrection(corrmin, corrminA, corrminB, corrfpp);
+
+                    corrout[corrout.size() - 1] = corrminA + "," + corrminB;
+                    nl.at(corri).toElement().setAttribute("d", corrout.join(" "));
+                }
+
+
                 out.insert(j + encoded++, A + "," + B);
 
                 asum = QString::number(asum + A.toDouble(), 'g', 8).toDouble();
@@ -656,7 +755,12 @@ bool Vector::Encode() {
         nl.at(i).toElement().setAttribute("d", out.join(" "));
 
         if (msgBytesAsString.isEmpty()) break;
-    }    
+    }
+
+    if (firstTime) {
+        emit writeToConsole("[Vector] The cover image has 0 number of supported lines. Only images with straight lines are supported.\n");
+        return false;
+    }
 
     if (!msgBytesAsString.isEmpty()) {
         emit writeToConsole("[Vector] Not enough lines to encode secret message.\n");
@@ -739,7 +843,18 @@ bool Vector::Decode() {
     qreal prevDistance = 0.0;
 
     nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos);
+
+    if (msgBytesAsString.isEmpty()) {
+        emit writeToConsole("[Vector] Could not extract the secret message length.\n");
+        return false;
+    }
+
     int msgLen = msgBytesAsString.left(8).toInt();
+
+    if (!msgLen) {
+        emit writeToConsole("[Vector] Decoded length of the secret message is 0.\n");
+        return false;
+    }
 
     if (mIsDebug) std::cout << "[D] randomized = " << msgLen << "; ";
 
@@ -748,14 +863,15 @@ bool Vector::Decode() {
 
     if (mIsDebug) std::cout << "msgLen = " << msgLen << std::endl;
 
-    if (!msgLen) {
-        emit writeToConsole("[Vector] Decoded length of the secret message is 0.\n");
-        return false;
-    }
-
     msgBytesAsString.clear();
 
     nextPointSecret(nl, msgBytesAsString, firstPolyL, firstL, prevDistance, fppos);
+
+    if (msgBytesAsString.isEmpty()) {
+        emit writeToConsole("[Vector] Could not extract the secret message settings.\n");
+        return false;
+    }
+
     int settings = msgBytesAsString.at(0).digitValue();
 
     if (mIsDebug) std::cout << "[D] randomized = " << settings << "; ";
