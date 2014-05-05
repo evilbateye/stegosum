@@ -449,10 +449,10 @@ bool Raster::Decode()
 
     setSeed(mSelectionIn[Utils::COLOR_NONE], mKey);
 
-    bool r, g, b;
-    bool decodedIsLookAhead;
-    bool decodedIsCompress;
-    bool decodedIsEncrypt;
+    int r, g, b;
+    int decodedIsLookAhead;
+    int decodedIsCompress;
+    int decodedIsEncrypt;
 
     if (!decodeFromPixel(start, pixVect, 1, Utils::EncodeColorsObj(true, true, true), 12, 1, &r, 1, &g, 1, &b,
         1, &decodedIsLookAhead, 1, &decodedIsCompress, 1, &decodedIsEncrypt)) {
